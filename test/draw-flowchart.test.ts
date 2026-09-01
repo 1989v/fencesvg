@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseFlowchart } from '../src/parse/flowchart';
 import { drawFlowchart } from '../src/draw/flowchart';
 import { defaultTheme } from '../src/draw/theme';
+import { measureText } from '../src/text';
 
 const draw = (src: string, accent?: string) => {
   const m = parseFlowchart(src);
@@ -75,6 +76,39 @@ function points(out: string): { box: [number, number, number, number]; pts: [num
   return { box, pts };
 }
 
+/**
+ * `<text>` 요소마다 x/y/font-size/내용을 읽어 실제 차지하는 바운딩 박스를
+ * 구한다(가운데 정렬 전제 — 이 파일이 그리는 모든 텍스트가 middle 앵커다).
+ * drawFlowchart 가 쓰는 것과 같은 measureText·캡하이트·디센더 근사를 그대로
+ * 재사용해, 도형 좌표만 보던 points() 로는 못 잡는 라벨 오버플로를 잡는다.
+ */
+function textBoxes(out: string): { minX: number; maxX: number; minY: number; maxY: number }[] {
+  const boxes: { minX: number; maxX: number; minY: number; maxY: number }[] = [];
+  for (const m of out.matchAll(/<text x="([\d.-]+)" y="([\d.-]+)"[^>]*font-size="(\d+)"[^>]*>([^<]*)<\/text>/g)) {
+    const cx = Number(m[1]), baseY = Number(m[2]), fontSize = Number(m[3]), content = m[4]!;
+    const halfW = measureText(content, fontSize) / 2;
+    boxes.push({ minX: cx - halfW, maxX: cx + halfW, minY: baseY - fontSize * 0.8, maxY: baseY + fontSize * 0.25 });
+  }
+  return boxes;
+}
+
+/** 도형 좌표점과 텍스트 박스가 전부 viewBox 안에 있는지 확인한다 */
+function assertAllContentWithinViewBox(out: string): void {
+  const { box: [vx, vy, vw, vh], pts } = points(out);
+  for (const [x, y] of pts) {
+    expect(x).toBeGreaterThanOrEqual(vx);
+    expect(x).toBeLessThanOrEqual(vx + vw);
+    expect(y).toBeGreaterThanOrEqual(vy);
+    expect(y).toBeLessThanOrEqual(vy + vh);
+  }
+  for (const b of textBoxes(out)) {
+    expect(b.minX).toBeGreaterThanOrEqual(vx);
+    expect(b.maxX).toBeLessThanOrEqual(vx + vw);
+    expect(b.minY).toBeGreaterThanOrEqual(vy);
+    expect(b.maxY).toBeLessThanOrEqual(vy + vh);
+  }
+}
+
 describe('drawFlowchart — 역방향 우회선', () => {
   it('순환이 있으면 역방향 간선이 5점 경로로 나오고, 그 점이 전부 viewBox 안에 있다', () => {
     // A --> B --> C 다음 C -.-> B 는 레이아웃 랭크상 역방향이 되어 상자를 우회한다
@@ -82,13 +116,22 @@ describe('drawFlowchart — 역방향 우회선', () => {
     const backEdgePolyline = out.split('\n').find((l) => l.startsWith('<polyline') && (l.match(/,/g) ?? []).length >= 5);
     expect(backEdgePolyline).toBeDefined(); // 5점 경로 = 콤마 5개
 
-    const { box: [vx, vy, vw, vh], pts } = points(out);
-    for (const [x, y] of pts) {
-      expect(x).toBeGreaterThanOrEqual(vx);
-      expect(x).toBeLessThanOrEqual(vx + vw);
-      expect(y).toBeGreaterThanOrEqual(vy);
-      expect(y).toBeLessThanOrEqual(vy + vh);
-    }
+    assertAllContentWithinViewBox(out);
+  });
+});
+
+describe('drawFlowchart — 라벨이 viewBox 밖으로 안 나간다', () => {
+  it('세로 방향(TD)에서 상자 폭보다 긴 간선 라벨도 잘리지 않는다', () => {
+    // 라벨이 상자보다 훨씬 넓으면 앵커(상자 중심 x) 좌우로 흘러넘친다
+    const out = draw('flowchart TD\n A[가] -->|아주 긴 간선 라벨을 붙여 본다| B[나]');
+    assertAllContentWithinViewBox(out);
+  });
+
+  it('순환 다이어그램에서 맨 위 간선 라벨의 윗변도 잘리지 않는다', () => {
+    // 역방향 우회선의 라벨은 차선 위(y 가 작은 쪽)에 놓이는데, 캡하이트만큼
+    // 더 위로 올라간 실제 텍스트 상단이 고정 pad=4 를 넘어설 수 있었다
+    const out = draw('flowchart LR\n A[주문] -->|승인| B{결제}\n B -.-> C(취소)\n C --> A');
+    assertAllContentWithinViewBox(out);
   });
 });
 
