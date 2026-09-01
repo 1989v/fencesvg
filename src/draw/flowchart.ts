@@ -43,7 +43,7 @@ export function arrowMarker(id: string, line: string): string {
  */
 function shapeOf(p: Placed, shape: string, theme: Theme, isEmphasis: boolean): string {
   const stroke = isEmphasis ? theme.accent : theme.nodeBorder;
-  const strokeWidth = isEmphasis ? 1.25 : 1;
+  const strokeWidth = isEmphasis ? theme.accentStrokeWidth : 1;
   const fill = isEmphasis ? theme.accentFill : theme.nodeFill;
   if (shape === 'diamond') {
     const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
@@ -136,11 +136,12 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
     const p: Placed = snapBox({ ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy });
     const isEmphasis = model.emphasis.has(n.id);
     const color = isEmphasis ? theme.accent : theme.ink;
+    const weight = isEmphasis ? theme.accentWeight : WEIGHT.label;
     const shape = n.shape === 'rect' && !hasIncoming.has(n.id) ? 'round' : n.shape;
     body.push(shapeOf(p, shape, theme, isEmphasis));
     body.push(text(n.label, {
       x: p.x + p.w / 2, y: p.y + p.h / 2 + theme.fontSize / 3,
-      'text-anchor': 'middle', fill: color, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
+      'text-anchor': 'middle', fill: color, 'font-size': theme.fontSize, 'font-weight': weight,
     }));
   }
 

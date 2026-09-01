@@ -1,4 +1,4 @@
-import type { Theme } from './draw/theme';
+import { EDITORIAL, WEIGHT, type Theme } from './draw/theme';
 
 /**
  * DOM 서피스는 이 파일 하나로 국한한다. `tsconfig.json` 은 "dom" lib 을 켜지
@@ -153,6 +153,19 @@ function sampleStructure(el: Element, ink: string, ground: string): string {
   return mix(ink, ground, 0.7);
 }
 
+function luminance(c: string): number {
+  const p = parseColor(c);
+  return p ? 0.299 * p.r + 0.587 * p.g + 0.114 * p.b : 128; // 못 읽으면 손대지 않는다(중간값)
+}
+
+/** 테두리 색이 배경과 거의 구별 안 되면(사이트 자체가 저대비인 경우) 잉크 쪽으로
+ * 끌어올려 최소한의 대비를 보장한다 — 옅어도 보이는 테두리가 안 보이는 것보다 낫다. */
+function ensureContrast(structure: string, ground: string, ink: string): string {
+  const MIN_LUMINANCE_DIFF = 24; // 0~255 스케일, 경험적 임계값
+  if (Math.abs(luminance(structure) - luminance(ground)) >= MIN_LUMINANCE_DIFF) return structure;
+  return mix(structure, ink, 0.6);
+}
+
 function sampleMuted(el: Element, ink: string, ground: string): string {
   const cand = el.querySelector('figcaption, small, time, [class*="muted"]');
   if (cand) {
@@ -187,10 +200,15 @@ const cache = new WeakMap<Element, Theme>();
  * `var(--fs-…, 감지값)` 형태다 — 감지값은 fallback 일 뿐이라, 소비 사이트가
  * 직접 `--fs-ink` 등을 지정하면 그쪽이 이긴다(CSS 가 이긴다는 기존 원칙 그대로).
  *
- * `theme.lineFaint`/`theme.muted` 는 그리는 쪽에서 이미 FAINT_OPACITY(0.35)·
- * MUTED_OPACITY(0.62) 를 얹어 쓴다 — 그래서 여기서는 구조/뮤트 표본을 불투명
- * 그대로 넘긴다. 여기서 또 알파를 섞으면 두 번 옅어져(0.35×0.45≈0.16) 거의
- * 안 보이게 된다.
+ * 강조를 칠할 실제 색(링크)을 못 찾으면 — 링크가 없는 문서, DOM 이 없는 경로,
+ * 그 밖에 표본을 전부 무력화하는 사이트 — 절반만 감지된 값을 짜맞추는 대신
+ * 처음부터 `EDITORIAL`(무채색 위계) 로 내려간다. 의도적으로 디자인된 무채색
+ * 쪽이, 못 찾은 값 자리에 어중간한 기본값을 채운 팔레트보다 항상 낫다.
+ *
+ * `theme.lineFaint`/`theme.muted` 는 그리는 쪽에서 이미 FAINT_OPACITY·
+ * MUTED_OPACITY 를 얹어 쓴다 — 그래서 여기서는 구조/뮤트 표본을 불투명 그대로
+ * 넘긴다(감지된 색은 잉크와 이미 다른 색상이라 그 자체로 옅어 보인다 —
+ * `EDITORIAL` 처럼 잉크와 같은 색일 때만 알파가 유일한 수단이다).
  */
 export function detectTheme(el: Element = document.body): Theme {
   const cached = cache.get(el);
@@ -199,7 +217,13 @@ export function detectTheme(el: Element = document.body): Theme {
   const ground = sampleGround(el);
   const ink = sampleInk(el);
   const action = sampleAction(el, ink);
-  const structure = sampleStructure(el, ink, ground);
+
+  if (action === ink) {
+    cache.set(el, EDITORIAL);
+    return EDITORIAL;
+  }
+
+  const structure = ensureContrast(sampleStructure(el, ink, ground), ground, ink);
   const muted = sampleMuted(el, ink, ground);
   const radius = sampleRadius(el);
   const fontSize = sampleFontSize(el);
@@ -222,6 +246,8 @@ export function detectTheme(el: Element = document.body): Theme {
     fontSize,
     labelSize: fontSize - 3,
     pad: 14,
+    accentStrokeWidth: 1.25,
+    accentWeight: WEIGHT.label,
   };
 
   cache.set(el, theme);

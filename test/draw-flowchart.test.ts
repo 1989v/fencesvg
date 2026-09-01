@@ -266,7 +266,7 @@ describe('drawFlowchart — 경계 사례', () => {
     const edgeLines = out.split('\n').filter((l) => l.startsWith('<path'));
     expect(edgeLines.length).toBeGreaterThan(0);
     for (const l of edgeLines) {
-      expect(l).toContain('stroke="var(--fs-line, currentColor)"');
+      expect(l).toMatch(/stroke="var\(--fs-line, /);
       expect(l).not.toContain('--fs-accent');
     }
     // 노드 B 자체는 --fs-accent 를 쓴다

@@ -122,6 +122,22 @@ them and diagrams render close to today's look off the fallbacks; set any of the
 your own stylesheet and the diagram inherits your site's materials. CSS always wins
 over the fallback.
 
+### Automatic palette detection
+
+In a browser, `renderDiagram`/`inlineDiagrams` read the host page's own palette and
+use it as the `--fs-*` fallbacks — zero configuration, no stylesheet convention to
+write. It samples the page (not CSS variable names, which differ on every site):
+background for the node fill, text colour for ink, the first link's colour for the
+accent, a border colour for structure, a caption/secondary colour for muted text, and
+a card's `border-radius`. An explicit `accent` option, or your own `--fs-*` rule,
+always wins over what was detected.
+
+When detection finds nothing usable — no DOM (Node/SSR), or a page with no links to
+carry a brand colour — diagrams fall back to `EDITORIAL`, the library's default look:
+a monochrome, `currentColor`-derived hierarchy that works on any background without
+guessing a hue that might clash with the site. Emphasis in `EDITORIAL` reads through
+weight (a heavier border and bolder label) instead of a colour it doesn't have.
+
 ```css
 svg {
   --fs-ink: #1a1a1a;
