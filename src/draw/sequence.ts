@@ -6,7 +6,7 @@ import { measureText } from '../text';
 import { arrowMarker, crossMarker } from './flowchart';
 import { ContentBBox } from './bbox';
 import { edgeLabel } from './label';
-import { WEIGHT, metrics } from './theme';
+import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
 
 // 자기 자신에게 보내는 메시지는 직선으로 그릴 수 없다(x1===x2 면 폭 0 짜리
 // 선이 되어 화살촉 방향도 안 정해진다) — 생명선 오른쪽으로 작은 사각 고리를
@@ -55,6 +55,44 @@ function activationSpans(model: SeqModel): { at: string; start: number; end: num
   return spans;
 }
 
+/**
+ * 프레임 블록을 행 번호 구간으로 바꾼다.
+ *
+ * 여는 줄과 갈래는 행을 차지하고 닫는 줄은 안 차지하므로, 행 번호를 세면서
+ * 스택으로 짝을 맞춘다. 가로 범위는 그 안에서 실제로 오간 참가자까지만
+ * 잡는다 — 전체 폭으로 그리면 관계없는 참가자까지 묶은 것처럼 보인다.
+ */
+type SeqFrame = { kind: string; label: string; start: number; end: number; elses: { row: number; label: string }[]; actors: Set<string> };
+
+function frameSpans(model: SeqModel): SeqFrame[] {
+  const done: SeqFrame[] = [];
+  const stack: SeqFrame[] = [];
+  let row = 0;
+  for (const step of model.steps) {
+    if (step.t === 'frameOpen') {
+      stack.push({ kind: step.kind, label: step.label, start: row, end: row, elses: [], actors: new Set() });
+      row++;
+      continue;
+    }
+    if (step.t === 'frameElse') {
+      stack[stack.length - 1]?.elses.push({ row, label: step.label });
+      row++;
+      continue;
+    }
+    if (step.t === 'frameClose') {
+      const f = stack.pop();
+      if (f) { f.end = row - 1; done.push(f); }
+      continue;
+    }
+    if (step.t === 'msg') { for (const f of stack) { f.actors.add(step.from); f.actors.add(step.to); } }
+    if (step.t === 'note') { for (const f of stack) f.actors.add(step.at); }
+    if (step.t === 'msg' || step.t === 'note') row++;
+  }
+  // 안 닫힌 프레임은 마지막 행까지로 본다.
+  for (const f of stack) { f.end = row - 1; done.push(f); }
+  return done;
+}
+
 function seqHead(head: SeqHead, idPrefix: string, arrowId: string): string | undefined {
   if (head === 'none') return undefined;
   if (head === 'cross') return `url(#${idPrefix}-cross)`;
@@ -86,6 +124,7 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
   const rows = visibleSteps(model);
   rows.forEach((s, i) => {
     const y = lay.rowY[i]!;
+    if (s.t === 'frameOpen' || s.t === 'frameElse') return;
     if (s.t === 'note') {
       const cx = lay.x.get(s.at)!;
       const w = measureText(s.label, theme.labelSize) + m.padX + Math.round(theme.fontSize / 2);
@@ -106,6 +145,22 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
     const cx = lay.x.get(a)!;
     const w = measureText(a, theme.fontSize) + m.padX * 2;
     bbox.box({ minX: cx - w / 2, maxX: cx + w / 2, minY: 0, maxY: lay.headH - m.memberInset });
+  }
+  // 프레임 테두리는 참가자 열 바깥으로 padX 만큼 나간다 — 미리 재 둔다.
+  {
+    const half = Math.round(m.seqRowH / 3);
+    const allX = model.actors.map((a) => lay.x.get(a)!);
+    for (const f of frameSpans(model)) {
+      if (rows.length === 0) continue;
+      const xs = [...f.actors].map((a) => lay.x.get(a)).filter((v): v is number => v !== undefined);
+      const span = xs.length > 0 ? xs : allX;
+      bbox.box({
+        minX: Math.min(...span) - m.padX,
+        maxX: Math.max(...span) + m.padX,
+        minY: lay.rowY[Math.min(f.start, rows.length - 1)]! - half,
+        maxY: lay.rowY[Math.min(Math.max(f.end, f.start), rows.length - 1)]! + half,
+      });
+    }
   }
 
   const sx = (n: number) => n + bbox.dx;
@@ -132,6 +187,44 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
     }));
   }
 
+  // 프레임 테두리 — 생명선 위, 활성 상자·메시지 아래.
+  {
+    const half = Math.round(m.seqRowH / 3);
+    const allX = model.actors.map((a) => lay.x.get(a)!).filter((v) => v !== undefined);
+    for (const f of frameSpans(model)) {
+      if (rows.length === 0) continue;
+      const xs = [...f.actors].map((a) => lay.x.get(a)).filter((v): v is number => v !== undefined);
+      const span = xs.length > 0 ? xs : allX;
+      const pad = m.padX;
+      const x1 = Math.min(...span) - pad;
+      const x2 = Math.max(...span) + pad;
+      const y1 = lay.rowY[Math.min(f.start, rows.length - 1)]! - half;
+      const y2 = lay.rowY[Math.min(Math.max(f.end, f.start), rows.length - 1)]! + half;
+      const box = snapBox({ x: sx(x1), y: sy(y1), w: x2 - x1, h: y2 - y1 });
+      body.push(el('rect', {
+        x: box.x, y: box.y, width: box.w, height: box.h, rx: theme.radius,
+        fill: 'none', stroke: theme.lineFaint, 'stroke-width': 1,
+      }));
+      // 왼쪽 위 이름표 — 종류(alt·loop…)와 조건을 한 줄로.
+      const tag = f.label ? `${f.kind} [${f.label}]` : f.kind;
+      body.push(text(tag, {
+        x: box.x + m.memberInset, y: box.y + m.rowH,
+        fill: theme.muted, 'fill-opacity': MUTED_OPACITY, 'font-size': m.memberSize, 'font-weight': WEIGHT.label,
+      }));
+      for (const e of f.elses) {
+        const ey = sy(lay.rowY[Math.min(e.row, rows.length - 1)]! - half);
+        body.push(el('line', {
+          x1: box.x, y1: ey, x2: box.x + box.w, y2: ey,
+          stroke: theme.lineFaint, 'stroke-width': 1, 'stroke-dasharray': '4 4',
+        }));
+        body.push(text(e.label ? `[${e.label}]` : 'else', {
+          x: box.x + m.memberInset, y: ey + m.rowH,
+          fill: theme.muted, 'fill-opacity': MUTED_OPACITY, 'font-size': m.memberSize, 'font-weight': WEIGHT.member,
+        }));
+      }
+    }
+  }
+
   // 활성 구간 상자 — 생명선 위, 메시지 아래. 생명선을 덮어 "이 동안 이 참가자가
   // 일하고 있다" 를 나타낸다. bbox 에 안 싣는 이유: 폭은 생명선 중심 ±4px 이고
   // 세로는 첫 행과 마지막 행 사이라, 이미 잰 생명선 범위 안에 항상 들어간다
@@ -154,6 +247,7 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
 
   rows.forEach((s, i) => {
     const y = sy(lay.rowY[i]!);
+    if (s.t === 'frameOpen' || s.t === 'frameElse') return; // 테두리에서 이미 그렸다
     if (s.t === 'note') {
       const cx = sx(lay.x.get(s.at)!);
       const w = measureText(s.label, theme.labelSize) + m.padX + Math.round(theme.fontSize / 2);

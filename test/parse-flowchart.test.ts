@@ -63,10 +63,14 @@ describe('parseFlowchart', () => {
     expect(ok('flowchart LR\n %% caption: 설명\n A[a] --> B[b]').nodes).toHaveLength(2);
   });
 
-  it('subgraph 는 아직 못 읽는다고 알린다', () => {
-    const m = parseFlowchart('flowchart LR\n subgraph s\n A --> B\n end');
-    expect(m).toHaveProperty('error');
-    expect((m as { error: string }).error).toMatch(/subgraph/);
+  it('subgraph 를 그룹으로 읽는다', () => {
+    const m = parseFlowchart('flowchart LR\n subgraph 결제\n A --> B\n end\n B --> C');
+    if ('error' in m) throw new Error(m.error);
+    expect(m.groups).toEqual([{ id: '결제', label: '결제', members: ['A', 'B'] }]);
+  });
+
+  it('짝 없는 end 는 알린다', () => {
+    expect(parseFlowchart('flowchart LR\n A --> B\n end')).toHaveProperty('error');
   });
 
   it('flowchart 가 아니면 오류다', () => {

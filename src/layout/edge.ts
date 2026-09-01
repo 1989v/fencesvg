@@ -172,12 +172,41 @@ export function entryOffsetFor(to: Placed, dir: Dir, slot: number, count: number
   return (slot - (count - 1) / 2) * spacing;
 }
 
+/**
+ * 자기 자신으로 돌아오는 간선. 상자 한쪽에 고리를 낸다.
+ *
+ * 일반 경로로는 못 그린다 — 출발점과 도착점이 같아서 선의 길이가 0 이 되고
+ * 화살촉 방향도 안 정해진다. 상자 위쪽에 사각 고리를 내어 나갔다 돌아오는
+ * 모양으로 만든다(순차도의 자기 메시지와 같은 해법).
+ */
+function routeSelfLoop(box: Placed): { path: Point[]; labelAt: Point } {
+  const inset = Math.min(box.w / 4, 18);
+  const lift = 18;
+  const left = box.x + inset;
+  const right = box.x + box.w - inset;
+  const top = box.y;
+  const lane = top - lift;
+  return {
+    path: [
+      { x: left, y: top },
+      { x: left, y: lane },
+      { x: right, y: lane },
+      { x: right, y: top },
+    ],
+    labelAt: { x: (left + right) / 2, y: lane },
+  };
+}
+
 export function routeEdge(
   from: Placed,
   to: Placed,
   dir: Dir,
   entryOffset = 0,
 ): { path: Point[]; labelAt: Point } {
+  // 같은 노드인지는 id 만으로 안 본다 — 호출자가 id 를 재사용하면(테스트
+  // 픽스처가 그랬다) 서로 다른 두 상자가 자기 루프로 오인된다. 배치가 끝난
+  // 뒤라 같은 노드는 좌표까지 같다.
+  if (from.id === to.id && from.x === to.x && from.y === to.y) return routeSelfLoop(from);
   const fromC = center(from);
   const toC = center(to);
   const horizontal = dir === 'LR' || dir === 'RL';

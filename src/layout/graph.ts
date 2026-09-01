@@ -75,8 +75,15 @@ function rank(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number> {
   return r;
 }
 
-/** 층 내 순서 — 앞 층에서 오는 이웃의 평균 위치(barycenter)로 정렬한다 */
-function order(layers: string[][], edges: GraphEdge[]): void {
+/**
+ * 층 내 순서 — 앞 층에서 오는 이웃의 평균 위치(barycenter)로 정렬한다.
+ *
+ * `groupOf` 를 주면 같은 그룹끼리 붙여 놓는다. 테두리는 구성원의 경계 상자로
+ * 그리므로, 구성원이 흩어지면 테두리 안에 남의 노드가 들어간다 — 그건 틀린
+ * 그림이라 그리는 쪽이 그때는 테두리를 포기한다. 여기서 붙여 두면 그럴 일이
+ * 대부분 사라진다.
+ */
+function order(layers: string[][], edges: GraphEdge[], groupOf?: Map<string, number>): void {
   const pred = new Map<string, string[]>();
   for (const e of edges) {
     if (!pred.has(e.to)) pred.set(e.to, []);
@@ -90,11 +97,29 @@ function order(layers: string[][], edges: GraphEdge[]): void {
       // 앞 층에 이웃이 없으면 제자리를 지킨다 — 결정성을 위해 idx 를 쓴다
       bary.set(id, ps.length === 0 ? idx : ps.reduce((a, b) => a + b, 0) / ps.length);
     });
-    layers[i] = layers[i]!
-      .map((id, idx) => ({ id, idx }))
-      .sort((a, b) => (bary.get(a.id)! - bary.get(b.id)!) || (a.idx - b.idx))
-      .map((x) => x.id);
+    layers[i] = sortLayer(layers[i]!, bary, groupOf);
   }
+  // 첫 층은 barycenter 가 없다. 그룹만으로 한 번 묶어 준다 — 안 그러면
+  // 첫 층에서 갈라진 그룹이 뒤 층까지 갈라진 채로 이어진다.
+  if (groupOf && layers[0]) {
+    const idx = new Map(layers[0].map((id, i) => [id, i]));
+    layers[0] = sortLayer(layers[0], idx, groupOf);
+  }
+}
+
+function sortLayer(layer: string[], bary: Map<string, number>, groupOf?: Map<string, number>): string[] {
+  return layer
+    .map((id, idx) => ({ id, idx }))
+    .sort((a, b) => {
+      if (groupOf) {
+        // 그룹 없는 노드는 맨 뒤로 — 그룹끼리 먼저 붙인다.
+        const ga = groupOf.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const gb = groupOf.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+        if (ga !== gb) return ga - gb;
+      }
+      return (bary.get(a.id)! - bary.get(b.id)!) || (a.idx - b.idx);
+    })
+    .map((x) => x.id);
 }
 
 export function layoutGraph(
@@ -102,13 +127,15 @@ export function layoutGraph(
   edges: GraphEdge[],
   dir: Dir,
   gap: { rank: number; node: number } = DEFAULT_GAP,
+  /** 노드 → 그룹 번호. 주면 같은 그룹끼리 층 안에서 붙여 놓는다. */
+  groupOf?: Map<string, number>,
 ): GraphLayout {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const rankOf = rank(nodes, edges);
   const maxRank = Math.max(0, ...rankOf.values());
   const layers: string[][] = Array.from({ length: maxRank + 1 }, () => []);
   for (const n of nodes) layers[rankOf.get(n.id)!]!.push(n.id);
-  order(layers, edges);
+  order(layers, edges, groupOf);
 
   const horizontal = dir === 'LR' || dir === 'RL';
   // 랭크축 = 층이 늘어서는 방향, 교차축 = 층 안에서 늘어서는 방향

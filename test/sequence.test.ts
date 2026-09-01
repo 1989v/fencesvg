@@ -36,8 +36,12 @@ describe('parseSequence', () => {
     expect(m.steps[1]).toMatchObject({ t: 'note', at: 'B', label: '검증한다' });
   });
 
-  it('alt 블록은 아직 못 읽는다고 알린다', () => {
-    expect(parseSequence('sequenceDiagram\n alt 성공\n A->>B: x\n end')).toHaveProperty('error');
+  it('짝 없는 end 는 알린다', () => {
+    expect(parseSequence('sequenceDiagram\n A->>B: x\n end')).toHaveProperty('error');
+  });
+
+  it('rect 블록은 아직 못 읽는다고 알린다 — 배경색 지정은 우리 색 모델과 안 맞는다', () => {
+    expect(parseSequence('sequenceDiagram\n rect rgb(0,0,0)\n A->>B: x\n end')).toHaveProperty('error');
   });
 });
 

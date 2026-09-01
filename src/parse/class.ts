@@ -1,4 +1,4 @@
-import type { ParseError } from './types';
+import type { Group, ParseError } from './types';
 
 export type ClassRel = 'inherit' | 'implement' | 'assoc' | 'depend' | 'compose' | 'aggregate' | 'link';
 export type ClassModel = {
@@ -10,6 +10,8 @@ export type ClassModel = {
     /** 관계선 양 끝의 개수 표기(`"1"` · `"0..*"`). 원문 순서 그대로다. */
     fromCard?: string; toCard?: string;
   }[];
+  /** `namespace` 로 묶인 클래스들. 흐름도의 subgraph 와 같은 것이다. */
+  groups: Group[];
 };
 
 // A<|--B : label — 화살표 양옆 공백은 있어도 없어도 된다(flowchart·state 와
@@ -59,10 +61,15 @@ export function parseClass(src: string): ClassModel | ParseError {
 
   const classes = new Map<string, ClassModel['classes'][number]>();
   const rels: ClassModel['rels'] = [];
+  const groups: Group[] = [];
+  let ns: Group | null = null;
   let open: string | null = null;
 
   const ensure = (id: string) => {
     if (!classes.has(id)) classes.set(id, { id, members: [] });
+    // 네임스페이스 안에서 처음 본 클래스만 그 그룹에 넣는다 — 관계 줄에서
+    // 바깥 클래스를 언급했다고 그룹에 끌려 들어오면 안 된다.
+    if (ns && !ns.members.includes(id)) ns.members.push(id);
     return classes.get(id)!;
   };
   /** `Repo~T~` 에서 이름만. 관계 줄에서도 제네릭 표기를 그대로 쓸 수 있다. */
@@ -79,7 +86,16 @@ export function parseClass(src: string): ClassModel | ParseError {
   for (const raw of lines.slice(1)) {
     const line = raw.replace(/\s*;$/, '');
     if (line.startsWith('%%')) continue;
-    if (/^namespace\b/.test(line)) return { error: '네임스페이스는 아직 지원하지 않는다' };
+
+    const nsOpen = /^namespace\s+([\p{L}\p{N}_.]+)\s*\{$/u.exec(line);
+    if (nsOpen) {
+      if (ns) return { error: '네임스페이스는 중첩할 수 없다' };
+      ns = { id: nsOpen[1]!, label: nsOpen[1]!, members: [] };
+      groups.push(ns);
+      continue;
+    }
+    // 클래스 블록이 열려 있지 않은 상태의 `}` 는 네임스페이스를 닫는 것이다.
+    if (line === '}' && !open && ns) { ns = null; continue; }
 
     if (open) {
       if (line === '}') { open = null; continue; }
@@ -117,6 +133,10 @@ export function parseClass(src: string): ClassModel | ParseError {
   }
 
   if (open) return { error: '닫히지 않은 클래스 블록이 있다' };
+  if (ns) return { error: '닫히지 않은 네임스페이스가 있다' };
   if (classes.size === 0) return { error: '클래스가 없다' };
-  return { kind: 'class', classes: [...classes.values()], rels };
+  return {
+    kind: 'class', classes: [...classes.values()], rels,
+    groups: groups.filter((g) => g.members.length > 0),
+  };
 }

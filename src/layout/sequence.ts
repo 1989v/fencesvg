@@ -2,9 +2,16 @@ import type { SeqModel, SeqStep } from '../parse/sequence';
 import type { Theme } from '../draw/theme';
 import { measureText } from '../text';
 
-/** 행을 차지하는 단계만. activate/deactivate 는 생명선 위의 상자라 행이 없다. */
-export function visibleSteps(model: SeqModel) {
-  return model.steps.filter((s): s is Extract<SeqStep, { t: 'msg' | 'note' }> => s.t === 'msg' || s.t === 'note');
+/**
+ * 행을 차지하는 단계만.
+ *
+ * activate/deactivate 는 생명선 위의 상자라 행이 없다. 프레임을 여는 줄과
+ * 갈래(`else`)는 이름표가 한 줄을 차지하니 행이 있고, 닫는 줄은 없다.
+ */
+export type RowStep = Extract<SeqStep, { t: 'msg' | 'note' | 'frameOpen' | 'frameElse' }>;
+export function visibleSteps(model: SeqModel): RowStep[] {
+  return model.steps.filter((s): s is RowStep =>
+    s.t === 'msg' || s.t === 'note' || s.t === 'frameOpen' || s.t === 'frameElse');
 }
 import { metrics } from '../draw/theme';
 
@@ -39,6 +46,9 @@ export function layoutSequence(model: SeqModel, theme: Theme) {
       widest.set(s.at, Math.max(widest.get(s.at) ?? MIN_COL, need));
       continue;
     }
+    // 프레임 이름표는 열 폭을 밀지 않는다 — 테두리 안 왼쪽 위에 앉으므로
+    // 어느 한 열에 속하지 않는다.
+    if (s.t !== 'msg') continue;
     const need = measureText(s.label, theme.labelSize) + theme.fontSize * 2;
     for (const a of [s.from, s.to]) widest.set(a, Math.max(widest.get(a) ?? MIN_COL, need));
   }

@@ -5,6 +5,7 @@ import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, type Box } from './bbox';
+import { framesFor, drawFrames, widenForLabel } from './group';
 import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
 import { arrowMarker } from './flowchart';
 import { GAP, PAD_X, PAD_Y } from './label';
@@ -90,7 +91,12 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
   });
   // 간선을 뒤집어 TD 로 돌린다 — 화살표 **머리**(상속의 부모)가 위에 온다.
   // 그래서 모든 화살표가 아래에서 위로 향하고, 라우팅 방향이 'BT' 하나로 통일된다.
-  const lay = layoutGraph(nodes, model.rels.map((r) => ({ from: r.to, to: r.from })), 'TD', m.gap);
+  const groupOf = new Map<string, number>();
+  model.groups.forEach((g, i) => { for (const id of g.members) if (!groupOf.has(id)) groupOf.set(id, i); });
+  const lay = layoutGraph(
+    nodes, model.rels.map((r) => ({ from: r.to, to: r.from })), 'TD', m.gap,
+    groupOf.size ? groupOf : undefined,
+  );
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
   const inboundCount = new Map<string, number>();
@@ -108,7 +114,11 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
 
   // 상자만으로 잰 layoutGraph 의 width/height 밖으로 나갈 수 있는 것들 —
   // 뒤로 가는 간선의 우회 경로와 관계 라벨 텍스트를 콘텐츠 bbox 에 포함시킨다.
+  const framed = framesFor(model.groups, at, theme);
+  const frames = framed.frames.map((f) => widenForLabel(f, theme));
+
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
+  for (const f of frames) bbox.box(f.box);
   for (const rt of routed) {
     for (const pt of rt.path) bbox.point(pt);
     if (rt.r.label) bbox.box(relationLabelChip(rt.r.label, rt.labelAt.x, rt.labelAt.y, theme).box);
@@ -120,7 +130,7 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     const m = markerFor(r.rel, idPrefix, theme);
     defs.set(m.id, m.def);
   }
-  const body: string[] = [...defs.values()];
+  const body: string[] = [...defs.values(), ...drawFrames(frames, shift, theme)];
 
   for (const rt of routed) {
     const path = rt.path.map(shift).map(snapPoint);

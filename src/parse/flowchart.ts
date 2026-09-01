@@ -1,5 +1,5 @@
 import type { Dir } from '../layout/graph';
-import type { FlowModel, FlowNode, FlowEdge, ParseError, Shape, Line, Head } from './types';
+import type { FlowModel, FlowNode, FlowEdge, Group, ParseError, Shape, Line, Head } from './types';
 
 const DIRS = new Set(['LR', 'RL', 'TD', 'BT', 'TB']);
 // id[라벨] · id(라벨) · id{라벨} · id — id 는 유니코드 문자/숫자/밑줄만 허용한다.
@@ -136,14 +136,35 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
   const edges: FlowEdge[] = [];
   const emphasis = new Set<string>();
   const warnings: string[] = [];
+  // subgraph 는 중첩될 수 있다. 스택으로 열고 닫되, 안쪽에서 본 노드는
+  // 바깥 그룹에도 속한다 — 테두리가 겹쳐 그려지는 게 맞다.
+  const groupStack: Group[] = [];
+  const groups: Group[] = [];
+  const joined = (id: string) => { for (const g of groupStack) if (!g.members.includes(id)) g.members.push(id); };
 
   for (const raw of lines.slice(1)) {
     // 줄 끝 세미콜론(선택적 문 종결자)은 여기서 한 번만 벗긴다 — 중간 세미콜론은
     // 다루지 않는다(한 줄에 문 여러 개를 세미콜론으로 잇는 문법은 범위 밖)
     const line = raw.replace(/\s*;$/, '');
     if (line.startsWith('%%')) continue;
-    if (/^subgraph\b/.test(line)) return { error: 'subgraph 는 아직 지원하지 않는다' };
-    if (line === 'end') return { error: 'subgraph 는 아직 지원하지 않는다' };
+    // `subgraph 결제` · `subgraph pay[결제]` — id 만 쓰면 그게 곧 라벨이다.
+    const sg = /^subgraph\s+(.+)$/.exec(line);
+    if (sg) {
+      const spec = sg[1]!.trim();
+      const withLabel = /^([\p{L}\p{N}_]+)\s*\[([^\]]*)\]$/u.exec(spec);
+      const id = withLabel ? withLabel[1]! : spec;
+      const g: Group = { id, label: withLabel ? withLabel[2]! : spec, members: [] };
+      groupStack.push(g);
+      groups.push(g);
+      continue;
+    }
+    if (line === 'end') {
+      if (groupStack.length === 0) return { error: '짝 없는 end 가 있다' };
+      groupStack.pop();
+      continue;
+    }
+    // 방향 선언은 subgraph 안에서도 나온다 — 우리 배치는 전체 방향 하나만 쓰므로 무시한다.
+    if (/^direction\s+\w+$/.test(line)) continue;
 
     if (/^class\s/.test(line)) {
       const [, ids, name] = /^class\s+([^\s]+)\s+(\w+)$/.exec(line) ?? [];
@@ -164,6 +185,7 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
       const only = node(tokens[0] ?? '');
       if ('error' in only) return only;
       nodes.set(only.node.id, nodes.get(only.node.id) ?? only.node);
+      joined(only.node.id);
       continue;
     }
 
@@ -187,6 +209,7 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
     for (const n of chainNodes) {
       const prev = nodes.get(n.id);
       if (!prev || (prev.label === prev.id && n.label !== n.id)) nodes.set(n.id, n);
+      joined(n.id);
     }
     for (let i = 0; i < arrows.length; i++) {
       edges.push({
@@ -200,6 +223,10 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
     }
   }
 
+  if (groupStack.length > 0) return { error: '닫히지 않은 subgraph 가 있다' };
   if (nodes.size === 0) return { error: '노드가 없다' };
-  return { kind: 'flowchart', dir, nodes: [...nodes.values()], edges, emphasis, warnings };
+  return {
+    kind: 'flowchart', dir, nodes: [...nodes.values()], edges,
+    groups: groups.filter((g) => g.members.length > 0), emphasis, warnings,
+  };
 }

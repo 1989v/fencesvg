@@ -73,8 +73,14 @@ describe('parseClass', () => {
     expect(ok('classDiagram\n A --> B').classes.map((c) => c.id)).toEqual(['A', 'B']);
   });
 
-  it('네임스페이스는 아직 못 읽는다고 알린다', () => {
-    expect(parseClass('classDiagram\n namespace n {\n class A\n }')).toHaveProperty('error');
+  it('네임스페이스를 그룹으로 읽는다', () => {
+    const m = parseClass('classDiagram\n namespace 결제 {\n class Card\n class Point\n }\n Card --> Point');
+    if ('error' in m) throw new Error(m.error);
+    expect(m.groups).toEqual([{ id: '결제', label: '결제', members: ['Card', 'Point'] }]);
+  });
+
+  it('닫히지 않은 네임스페이스는 알린다', () => {
+    expect(parseClass('classDiagram\n namespace X {\n class A')).toHaveProperty('error');
   });
 
   it('상속 화살표는 from=자식, to=부모로 정규화한다', () => {

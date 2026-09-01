@@ -4,11 +4,20 @@ import type { ParseError } from './types';
  * `-)` 는 비동기(속 빈 화살촉)다. */
 export type SeqHead = 'none' | 'arrow' | 'cross' | 'async';
 
+/** 프레임 블록 종류. `alt`/`opt`/`loop`/`par`/`critical`/`break` 는 모두
+ * "이 구간을 테두리로 묶고 왼쪽 위에 이름표를 단다" 는 같은 모양이다. */
+export type SeqFrameKind = 'alt' | 'opt' | 'loop' | 'par' | 'critical' | 'break';
+
 export type SeqStep =
   | { t: 'msg'; from: string; to: string; label: string; line: 'solid' | 'dotted'; head: SeqHead; num?: number }
   | { t: 'note'; at: string; label: string }
   | { t: 'activate'; at: string }
-  | { t: 'deactivate'; at: string };
+  | { t: 'deactivate'; at: string }
+  /** 프레임 열기. `label` 은 조건문(`재고 있음`). */
+  | { t: 'frameOpen'; kind: SeqFrameKind; label: string }
+  /** 같은 프레임 안의 갈래(`else` · `and`). */
+  | { t: 'frameElse'; label: string }
+  | { t: 'frameClose' };
 
 export type SeqModel = { kind: 'sequence'; actors: string[]; steps: SeqStep[]; autonumber: boolean };
 
@@ -23,8 +32,10 @@ const MSG =
 const HEAD_OF: Record<string, SeqHead> = { '>>': 'arrow', '>': 'none', x: 'cross', ')': 'async' };
 const NOTE = /^Note\s+(?:over|right of|left of)\s+([^:]+):\s*(.*)$/i;
 const ACTIVATION = /^(activate|deactivate)\s+([\p{L}\p{N}_]+)$/u;
-/** 아직 못 읽는 프레임 블록. 읽는 것과 따로 둬야 새로 지원할 때 여기서 뺀다. */
-const BLOCK = /^(alt|else|opt|loop|par|and|rect|critical|break|end)\b/;
+const FRAME_OPEN = /^(alt|opt|loop|par|critical|break)\b\s*(.*)$/;
+const FRAME_ELSE = /^(else|and)\b\s*(.*)$/;
+/** 아직 못 읽는 블록. `rect` 는 배경색 지정이라 우리 색 모델과 안 맞는다. */
+const BLOCK = /^(rect)\b/;
 
 export function parseSequence(src: string): SeqModel | ParseError {
   const lines = src.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
@@ -34,6 +45,7 @@ export function parseSequence(src: string): SeqModel | ParseError {
   const steps: SeqStep[] = [];
   let autonumber = false;
   let counter = 0;
+  let depth = 0;
   const see = (name: string) => { if (!actors.includes(name)) actors.push(name); };
 
   for (const raw of lines.slice(1)) {
@@ -42,6 +54,25 @@ export function parseSequence(src: string): SeqModel | ParseError {
     if (line.startsWith('%%')) continue;
     if (/^autonumber\b/.test(line)) { autonumber = true; continue; }
     if (BLOCK.test(line)) return { error: `${line.split(/\s/)[0]} 블록은 아직 지원하지 않는다` };
+
+    const fo = FRAME_OPEN.exec(line);
+    if (fo) {
+      depth++;
+      steps.push({ t: 'frameOpen', kind: fo[1] as SeqFrameKind, label: fo[2]!.trim() });
+      continue;
+    }
+    const fe = FRAME_ELSE.exec(line);
+    if (fe) {
+      if (depth === 0) return { error: `짝 없는 ${fe[1]} 가 있다` };
+      steps.push({ t: 'frameElse', label: fe[2]!.trim() });
+      continue;
+    }
+    if (line === 'end') {
+      if (depth === 0) return { error: '짝 없는 end 가 있다' };
+      depth--;
+      steps.push({ t: 'frameClose' });
+      continue;
+    }
 
     const act = ACTIVATION.exec(line);
     if (act) {
@@ -76,6 +107,7 @@ export function parseSequence(src: string): SeqModel | ParseError {
     });
   }
 
+  if (depth > 0) return { error: '닫히지 않은 블록이 있다' };
   if (actors.length === 0) return { error: '참가자가 없다' };
   return { kind: 'sequence', actors, steps, autonumber };
 }

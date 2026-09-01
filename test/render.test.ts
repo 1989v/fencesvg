@@ -23,7 +23,7 @@ describe('renderDiagram', () => {
   });
 
   it('던지지 않고 실패를 돌려준다', () => {
-    const r = renderDiagram('flowchart LR\n subgraph s\n A --> B\n end');
+    const r = renderDiagram('flowchart LR\n A --> B\n end');
     expect(r.svg).toBeNull();
     expect(r.warnings.length).toBeGreaterThan(0);
   });

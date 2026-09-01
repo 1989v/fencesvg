@@ -55,8 +55,14 @@ describe('parseState', () => {
     expect(m.nodes).toHaveLength(3);
   });
 
-  it('중첩 상태는 아직 못 읽는다고 알린다', () => {
-    expect(parseState('stateDiagram-v2\n state A {\n B --> C\n }')).toHaveProperty('error');
+  it('중첩 상태를 그룹으로 읽는다', () => {
+    const m = parseState('stateDiagram-v2\n state 처리중 {\n A --> B\n }\n B --> C');
+    if ('error' in m) throw new Error(m.error);
+    expect(m.groups).toEqual([{ id: '처리중', label: '처리중', members: ['A', 'B'] }]);
+  });
+
+  it('닫히지 않은 state 블록은 알린다', () => {
+    expect(parseState('stateDiagram-v2\n state X {\n A --> B')).toHaveProperty('error');
   });
 
   it('공백 없는 화살표도 읽는다 (넓혀진 문법)', () => {

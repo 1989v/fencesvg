@@ -7,6 +7,7 @@ import { measureText } from '../text';
 import { arrowMarker } from './flowchart';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
+import { framesFor, drawFrames, widenForLabel } from './group';
 import { WEIGHT, metrics } from './theme';
 
 const TERMINAL = 14;
@@ -21,7 +22,10 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
     ? { id: n.id, w: TERMINAL, h: TERMINAL }
     : { id: n.id, w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2), h: m.pillH });
 
-  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap);
+  // 같은 그룹끼리 층 안에서 붙여 놓는다 — 테두리가 남의 노드를 안 삼키도록.
+  const groupOf = new Map<string, number>();
+  model.groups.forEach((g, i) => { for (const id of g.members) if (!groupOf.has(id)) groupOf.set(id, i); });
+  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap, groupOf.size ? groupOf : undefined);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 
@@ -41,7 +45,15 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   // routeEdge 의 역방향 우회 경로와 라벨 텍스트는 layoutGraph 가 상자만으로
   // 잰 width/height 바깥으로 나갈 수 있다 — 실제로 그려질 모든 것(상자 +
   // 간선 경로 + 라벨)을 모아 콘텐츠 bbox 를 구하고 원점을 0 으로 옮긴다.
+  // 그룹 테두리는 노드 배치가 끝나야 정해진다. 라벨 길이만큼 넓힌 뒤 bbox 에 싣는다.
+  const framed = framesFor(model.groups, at, theme);
+  const frames = framed.frames.map((f) => widenForLabel(f, theme));
+  // 테두리를 포기한 이유는 그리는 시점에만 알 수 있다 — 모델 경고에 합쳐
+  // 호출자가 renderDiagram 의 warnings 로 한 번에 받게 한다.
+  model.warnings.push(...framed.warnings);
+
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
+  for (const f of frames) bbox.box(f.box);
   // 라벨은 먼저 놓인 것부터 자리를 차지한다 — 뒤에 오는 라벨이 이걸 피한다.
   const placedLabels: Box[] = [];
   for (const r of routed) {
@@ -61,7 +73,7 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   }
   const shift = bbox.shift;
 
-  const body: string[] = [arrowMarker(arrowId, theme.line)];
+  const body: string[] = [arrowMarker(arrowId, theme.line), ...drawFrames(frames, shift, theme)];
   // 라벨은 노드보다 나중에 — 노드가 라벨을 덮어 가리는 걸 막는다. 간선
   // 자체는 지금처럼 노드보다 먼저 그려 노드 밑에 깔린다.
   const labelBody: string[] = [];

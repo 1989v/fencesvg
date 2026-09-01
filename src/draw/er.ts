@@ -1,4 +1,4 @@
-import type { ErModel, Card } from '../parse/er';
+import type { ErModel, ErAttr, Card } from '../parse/er';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { entryOffsetFor, routeEdge, type Point } from '../layout/edge';
@@ -6,7 +6,7 @@ import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
-import { WEIGHT, metrics } from './theme';
+import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
 
 // 라벨을 경로 중점이 아니라 시작 쪽 40% 지점에 — 한 엔티티에서 갈라지는 관계끼리
 // 라벨이 안 겹치게. 값의 근거는 draw/flowchart.ts 의 LABEL_T 주석 참고.
@@ -63,13 +63,26 @@ function crowExtent(at: Point, toward: Point, card: Card): Point[] {
   return pts;
 }
 
+/** 속성 한 줄의 표시 문자열. 키는 뒤에 모아 붙인다 — 이름과 타입이 먼저 읽혀야 한다. */
+function attrLine(a: ErAttr): string {
+  const keys = a.keys.length ? `  ${a.keys.join(' ')}` : '';
+  return `${a.type} ${a.name}${keys}`;
+}
+
 export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: string): string {
   const m = metrics(theme);
-  const nodes: GraphNode[] = model.entities.map((e) => ({
-    id: e.id,
-    w: Math.max(88, measureText(e.id, theme.fontSize) + m.padX * 2),
-    h: m.nodeH,
-  }));
+  const nodes: GraphNode[] = model.entities.map((e) => {
+    const widest = Math.max(
+      measureText(e.id, theme.fontSize),
+      ...e.attrs.map((a) => measureText(attrLine(a), m.memberSize)),
+    );
+    return {
+      id: e.id,
+      // 속성이 있으면 이름 칸 + 속성 행. 없으면 예전처럼 한 칸짜리 상자다.
+      w: Math.max(Math.round(m.minW * 1.22), widest + m.padX * 2),
+      h: e.attrs.length === 0 ? m.nodeH : m.headH + e.attrs.length * m.rowH + Math.round(theme.fontSize / 1.5),
+    };
+  });
   const edges = model.rels.map((r) => ({ from: r.from, to: r.to }));
   const lay = layoutGraph(nodes, edges, 'LR', m.gap);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
@@ -124,6 +137,7 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     body.push(el('path', {
       d: pathData(path),
       fill: 'none', stroke: theme.line, 'stroke-width': 1,
+      'stroke-dasharray': rt.r.line === 'dotted' ? '3 3' : undefined,
     }));
     body.push(...crow(path[0]!, path[1]!, rt.r.fromCard, theme.line));
     body.push(...crow(path[path.length - 1]!, path[path.length - 2]!, rt.r.toCard, theme.line));
@@ -137,14 +151,37 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     const p0: Placed | undefined = at.get(e.id);
     if (!p0) continue;
     const p: Placed = snapBox({ ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy });
+    const hasAttrs = e.attrs.length > 0;
+    // 속성이 있으면 이름 칸에 한 단 진한 면을 깔아 칸이 나뉜 게 보이게 한다.
+    if (hasAttrs) {
+      body.push(el('rect', {
+        x: p.x, y: p.y, width: p.w, height: m.headH, rx: theme.radius, fill: theme.nodeFillAlt,
+      }));
+    }
     body.push(el('rect', {
       x: p.x, y: p.y, width: p.w, height: p.h, rx: theme.radius,
-      fill: theme.nodeFill, stroke: theme.nodeBorder, 'stroke-width': 1,
+      fill: hasAttrs ? 'none' : theme.nodeFill, stroke: theme.nodeBorder, 'stroke-width': 1,
     }));
     body.push(text(e.id, {
-      x: p.x + p.w / 2, y: p.y + p.h / 2 + theme.fontSize / 3,
+      x: p.x + p.w / 2,
+      y: hasAttrs ? p.y + m.headH / 2 + theme.fontSize / 2.4 : p.y + p.h / 2 + theme.fontSize / 3,
       'text-anchor': 'middle', fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
+    if (hasAttrs) {
+      body.push(el('line', {
+        x1: p.x, y1: p.y + m.headH, x2: p.x + p.w, y2: p.y + m.headH,
+        stroke: theme.lineFaint, 'stroke-width': 1,
+      }));
+      e.attrs.forEach((a, i) => {
+        body.push(text(attrLine(a), {
+          x: p.x + m.memberInset, y: p.y + m.headH + m.memberBaseline + i * m.rowH,
+          fill: a.keys.length ? theme.ink : theme.muted,
+          'fill-opacity': a.keys.length ? 1 : MUTED_OPACITY,
+          'font-size': m.memberSize,
+          'font-weight': a.keys.length ? WEIGHT.label : WEIGHT.member,
+        }));
+      });
+    }
   }
 
   body.push(...labelBody);

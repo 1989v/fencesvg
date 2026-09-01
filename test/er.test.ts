@@ -70,8 +70,8 @@ describe('parseEr', () => {
     expect(ok('erDiagram\n A ||--o{ B : ""').rels[0]!.label).toBeUndefined();
   });
 
-  it('속성 블록은 아직 못 읽는다고 알린다', () => {
-    expect(parseEr('erDiagram\n ORDER {\n string id\n }')).toHaveProperty('error');
+  it('닫히지 않은 속성 블록은 알린다', () => {
+    expect(parseEr('erDiagram\n ORDER {\n string id')).toHaveProperty('error');
   });
 
   it('끝의 세미콜론을 벗긴다', () => {

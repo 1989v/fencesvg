@@ -19,11 +19,16 @@ export type Head = 'none' | 'arrow' | 'circle' | 'cross';
 
 export type FlowNode = { id: string; label: string; shape: Shape };
 export type FlowEdge = { from: string; to: string; label?: string; line: Line; head: Head; backHead?: Head };
+/** `subgraph`(흐름도) · `state X { }`(상태도) · `namespace`(클래스도) 는
+ * 표기만 다를 뿐 "이 노드들을 한 테두리로 묶는다" 는 같은 것이다. */
+export type Group = { id: string; label: string; members: string[] };
+
 export type FlowModel = {
   kind: 'flowchart' | 'state';
   dir: Dir;
   nodes: FlowNode[];
   edges: FlowEdge[];
+  groups: Group[];
   emphasis: Set<string>;
   warnings: string[]; // 치명적이진 않지만 알려야 하는 것들(예: 강조 2개 이상)
 };

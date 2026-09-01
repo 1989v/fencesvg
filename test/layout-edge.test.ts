@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { routeEdge } from '../src/layout/edge';
 
-const box = (x: number, y: number) => ({ id: 'x', x, y, w: 100, h: 40 });
+// id 는 상자마다 다르게 준다 — 같은 id 를 재사용하면 자기 루프 판정에 걸린다.
+let seq = 0;
+const box = (x: number, y: number) => ({ id: `n${++seq}`, x, y, w: 100, h: 40 });
 
 type Box = ReturnType<typeof box>;
 

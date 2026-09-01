@@ -6,6 +6,7 @@ import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
+import { framesFor, drawFrames, widenForLabel } from './group';
 import { WEIGHT, metrics } from './theme';
 
 // 간선 라벨은 경로 중점이 아니라 시작 쪽 40% 지점에 둔다 — 같은 노드에서
@@ -166,7 +167,10 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
     w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2) * (n.shape === 'diamond' ? 1.4 : 1),
     h: m.nodeH,
   }));
-  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap);
+  // 같은 그룹끼리 층 안에서 붙여 놓는다 — 테두리가 남의 노드를 안 삼키도록.
+  const groupOf = new Map<string, number>();
+  model.groups.forEach((g, i) => { for (const id of g.members) if (!groupOf.has(id)) groupOf.set(id, i); });
+  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap, groupOf.size ? groupOf : undefined);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 
@@ -190,7 +194,15 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   // 경로 + 간선 라벨 + 노드 라벨)을 모아 진짜 콘텐츠 bbox 를 구하고 원점이
   // 0 이 되도록 통째로 옮긴다 — 안 그러면 그 바깥으로 나온 조각이 viewBox
   // 에서 잘린다.
+  // 그룹 테두리는 노드 배치가 끝나야 정해진다. 라벨 길이만큼 넓힌 뒤 bbox 에 싣는다.
+  const framed = framesFor(model.groups, at, theme);
+  const frames = framed.frames.map((f) => widenForLabel(f, theme));
+  // 테두리를 포기한 이유는 그리는 시점에만 알 수 있다 — 모델 경고에 합쳐
+  // 호출자가 renderDiagram 의 warnings 로 한 번에 받게 한다.
+  model.warnings.push(...framed.warnings);
+
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
+  for (const f of frames) bbox.box(f.box);
   // 라벨은 먼저 놓인 것부터 자리를 차지한다 — 뒤에 오는 라벨이 이걸 피한다.
   const placedLabels: Box[] = [];
   for (const r of routed) {
@@ -220,6 +232,8 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   if (usedHeads.has('circle')) body.push(circleMarker(`${idPrefix}-circle`, theme.line, theme.nodeFill));
   if (usedHeads.has('cross')) body.push(crossMarker(`${idPrefix}-cross`, theme.line));
   if (needsBack) body.push(backArrowMarker(`${idPrefix}-back`, theme.line));
+  // 테두리를 맨 먼저 — 간선·노드가 그 위에 온다.
+  body.push(...drawFrames(frames, shift, theme));
   // 라벨은 노드보다 나중에 낸다 — 노드가 라벨 자리를 덮으면 배경 칩째로
   // 가려지던 문제(예: 마름모 아래 깔린 간선 라벨)를 막는다. 간선 자체는
   // 지금처럼 노드보다 먼저 그려 노드 밑에 깔린다.
