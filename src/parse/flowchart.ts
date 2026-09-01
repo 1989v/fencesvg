@@ -1,5 +1,5 @@
 import type { Dir } from '../layout/graph';
-import type { FlowModel, FlowNode, FlowEdge, ParseError, Shape, Line } from './types';
+import type { FlowModel, FlowNode, FlowEdge, ParseError, Shape, Line, Head } from './types';
 
 const DIRS = new Set(['LR', 'RL', 'TD', 'BT', 'TB']);
 // id[라벨] · id(라벨) · id{라벨} · id — id 는 유니코드 문자/숫자/밑줄만 허용한다.
@@ -8,7 +8,12 @@ const DIRS = new Set(['LR', 'RL', 'TD', 'BT', 'TB']);
 // 화살표를 왼쪽에서 오른쪽으로 먼저 찾는 스캔(아래 tokenizeChain)이 하이픈을
 // 전부 id 쪽에 남기므로, `A-B` 는 그 자체로 못 읽는 id 가 되어 에러로 끝난다
 // — 조용히 잘못 쪼개지는 대신.
-const NODE = /^([\p{L}\p{N}_]+)(?:\[([^\]]*)\]|\(([^)]*)\)|\{([^}]*)\})?$/u;
+// 여는 괄호가 긴 것부터 시도한다 — `[[`·`([`·`[(`·`((`·`{{` 는 각각
+// `[`·`(`·`{` 로도 매치되기 때문에 순서가 곧 의미다.
+const NODE = /^([\p{L}\p{N}_]+)(?:\[\[([^\]]*)\]\]|\[\(([^)]*)\)\]|\(\(([^)]*)\)\)|\(\[([^\]]*)\]\)|\{\{([^}]*)\}\}|\[([^\]]*)\]|\(([^)]*)\)|\{([^}]*)\})?$/u;
+
+/** NODE 캡처 그룹 순서 → 모양. 인덱스는 정규식의 괄호 순서와 한 몸이다. */
+const SHAPE_BY_GROUP: Shape[] = ['subroutine', 'cylinder', 'circle', 'stadium', 'hexagon', 'rect', 'round', 'diamond'];
 
 // --> · -.-> · -->|라벨| · -.->|라벨| — 화살표 양옆 공백은 있어도 없어도 된다.
 // -.-> 를 --> 보다 먼저 시도해야 점선의 첫 대시 두 개가 실선으로 잘못 잡히지
@@ -17,7 +22,28 @@ const NODE = /^([\p{L}\p{N}_]+)(?:\[([^\]]*)\]|\(([^)]*)\)|\{([^}]*)\})?$/u;
 // `A --> B --> C` 같은 체인도 이 스캔 하나로 처리된다(화살표가 여럿이면
 // 노드도 여럿). |라벨| 은 이 정규식 자체가 통째로 삼키므로 라벨 안의
 // "-->" 같은 문자는(`A -->|a-->b| B`) 스캔 대상이 아니다 — 이미 안전하다.
-const ARROW = /(-\.->|-{2}>)\s*(?:\|([^|]*)\|)?\s*/y;
+// 선 3종(실선 `--` · 점선 `-.-` · 굵은선 `==`) × 끝 4종(`>` 화살표 · `o` 원 ·
+// `x` 가위표 · 없음)에 양방향(`<`) 접두가 붙는다. 긴 것부터 시도해야 한다 —
+// `-.->` 를 `-->` 보다, `<-->` 를 `-->` 보다 먼저 봐야 첫 글자들이 엉뚱한
+// 갈래로 먹히지 않는다. |라벨| 은 이 정규식이 통째로 삼키므로 라벨 안의
+// "-->" 는(`A -->|a-->b| B`) 스캔 대상이 아니다.
+// 연결자 = 선택적 `<` + 선 몸통 + 선택적 끝(`>` `o` `x`).
+//
+// 몸통은 길이가 가변이다. mermaid 는 `-->` 와 `---->` 를 둘 다 받고(길이는
+// 랭크 힌트라 우리 배치에는 영향이 없다), `---` 처럼 끝이 없으면 화살표 없는
+// 연결선이다. 그래서 몸통을 고정 문자열로 잡으면 안 된다 — `-{2}` 로 잡았더니
+// `---` 에서 남은 `-` 가 다음 노드 토큰에 붙어 파싱이 깨졌다.
+//
+// 점선은 `-.-` · `-..-` 처럼 점 개수가 는다. 굵은선은 `==` 이상.
+const ARROW = /(<)?(-\.+-|-{2,}|={2,})(>|o|x)?\s*(?:\|([^|]*)\|)?\s*/y;
+
+const HEAD_OF: Record<string, Head> = { '>': 'arrow', o: 'circle', x: 'cross' };
+
+function lineOf(body: string): Line {
+  if (body.includes('.')) return 'dotted';
+  if (body.startsWith('=')) return 'thick';
+  return 'solid';
+}
 
 function node(token: string): { node: FlowNode } | ParseError {
   const trimmed = token.trim();
@@ -34,8 +60,12 @@ function node(token: string): { node: FlowNode } | ParseError {
     return { error: `읽을 수 없는 노드: ${trimmed}${reason}` };
   }
   const id = m[1]!;
-  const shape: Shape = m[3] !== undefined ? 'round' : m[4] !== undefined ? 'diamond' : 'rect';
-  const label = m[2] ?? m[3] ?? m[4] ?? id;
+  let shape: Shape = 'rect';
+  let label = id;
+  for (let g = 0; g < SHAPE_BY_GROUP.length; g++) {
+    const captured = m[g + 2];
+    if (captured !== undefined) { shape = SHAPE_BY_GROUP[g]!; label = captured; break; }
+  }
   return { node: { id, label, shape } };
 }
 
@@ -48,9 +78,11 @@ function node(token: string): { node: FlowNode } | ParseError {
  * 토큰이 되고, 그건 NODE 에 안 맞아 에러로 끝난다 — 그 이상 대괄호 짝을
  * 검증하지는 않는다.
  */
-function tokenizeChain(line: string): { tokens: string[]; arrows: { line: Line; label?: string }[] } {
+type ChainArrow = { line: Line; label?: string; head: Head; backHead?: Head };
+
+function tokenizeChain(line: string): { tokens: string[]; arrows: ChainArrow[] } {
   const tokens: string[] = [];
-  const arrows: { line: Line; label?: string }[] = [];
+  const arrows: ChainArrow[] = [];
   let segStart = 0;
   let depth = 0;
   let i = 0;
@@ -70,8 +102,17 @@ function tokenizeChain(line: string): { tokens: string[]; arrows: { line: Line; 
       ARROW.lastIndex = i;
       const m = ARROW.exec(line);
       if (m) {
+        // 화살촉도 없고 양방향도 아닌 `-.-` 는 점선 연결선이다. `--` 하나만으로는
+        // 화살표를 못 만드니(`-` 는 그냥 하이픈) 여기 오는 `--` 는 항상 `---` 이상이다.
+        const kind = m[2]!;
+        const head: Head = m[3] ? HEAD_OF[m[3]]! : 'none';
         tokens.push(line.slice(segStart, i));
-        arrows.push({ line: m[1] === '-.->' ? 'dotted' : 'solid', label: m[2]?.trim() || undefined });
+        arrows.push({
+          line: lineOf(kind),
+          head,
+          backHead: m[1] ? (head === 'none' ? 'arrow' : head) : undefined,
+          label: m[4]?.trim() || undefined,
+        });
         i += m[0].length;
         segStart = i;
         continue;
@@ -153,6 +194,8 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
         to: chainNodes[i + 1]!.id,
         label: arrows[i]!.label,
         line: arrows[i]!.line,
+        head: arrows[i]!.head,
+        backHead: arrows[i]!.backHead,
       });
     }
   }

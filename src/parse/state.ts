@@ -34,7 +34,7 @@ export function parseState(src: string): FlowModel | ParseError {
     for (const id of [from, to]) {
       if (!nodes.has(id)) nodes.set(id, { id, label: id, shape: 'round' });
     }
-    edges.push({ from, to, label: label?.trim() || undefined, line: 'solid' });
+    edges.push({ from, to, label: label?.trim() || undefined, line: 'solid', head: 'arrow' });
   }
 
   if (nodes.size === 0) return { error: '상태가 없다' };

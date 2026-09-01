@@ -43,18 +43,50 @@ function markerFor(rel: ClassRel, idPrefix: string, theme: Theme): { id: string;
       ]),
     };
   }
+  if (rel === 'compose' || rel === 'aggregate') {
+    // UML 의 마름모. 합성은 속을 채우고(전체가 부분을 소유), 집합은 비운다.
+    const id = `${idPrefix}-${rel}`;
+    return {
+      id,
+      def: el('defs', {}, [
+        el('marker', { id, viewBox: '0 0 12 10', refX: 11, refY: 5, markerWidth: 11, markerHeight: 9, orient: 'auto' },
+          [el('polygon', {
+            points: '0,5 6,0 12,5 6,10',
+            fill: rel === 'compose' ? theme.line : theme.nodeFill,
+            stroke: theme.line, 'stroke-width': 1.2,
+          })]),
+      ]),
+    };
+  }
   // 연관·의존 화살촉은 flowchart 와 같은 모양 — 따로 정의를 복제하지 않는다.
   return { id: `${idPrefix}-arrow`, def: arrowMarker(`${idPrefix}-arrow`, theme.line) };
+}
+
+/** 화면에 쓸 이름. 제네릭은 `Repo<T>` 로 편다 — `~` 는 원문 표기일 뿐이다. */
+function displayName(c: ClassModel['classes'][number]): string {
+  return c.generic ? `${c.id}<${c.generic}>` : c.id;
+}
+
+/** 표식은 이름 위 작은 줄로 낸다(UML 관례). */
+function stereotypeLine(c: ClassModel['classes'][number]): string | null {
+  return c.stereotype ? `«${c.stereotype}»` : null;
 }
 
 export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, label: string): string {
   const m = metrics(theme);
   const nodes: GraphNode[] = model.classes.map((c) => {
+    const st = stereotypeLine(c);
     const widest = Math.max(
-      measureText(c.id, theme.fontSize),
+      measureText(displayName(c), theme.fontSize),
+      st ? measureText(st, m.memberSize) : 0,
       ...c.members.map((mem) => measureText(mem, m.memberSize)),
     );
-    return { id: c.id, w: Math.max(Math.round(m.minW * 1.53), widest + m.padX * 2), h: m.headH + c.members.length * m.rowH + Math.round(theme.fontSize / 1.5) };
+    const headH = m.headH + (st ? m.rowH : 0);
+    return {
+      id: c.id,
+      w: Math.max(Math.round(m.minW * 1.53), widest + m.padX * 2),
+      h: headH + c.members.length * m.rowH + Math.round(theme.fontSize / 1.5),
+    };
   });
   // 간선을 뒤집어 TD 로 돌린다 — 화살표 **머리**(상속의 부모)가 위에 온다.
   // 그래서 모든 화살표가 아래에서 위로 향하고, 라우팅 방향이 'BT' 하나로 통일된다.
@@ -97,11 +129,24 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     body.push(el('path', {
       d: pathData(path),
       fill: 'none', stroke: theme.line, 'stroke-width': 1,
+      // 점선은 "구현·의존"의 관례 표기다. 화살촉 없는 연결(`--`·`..`)은
+      // `..` 쪽만 점선이어야 하지만 파서가 둘을 같은 `link` 로 접었으므로
+      // 여기서는 실선으로 낸다 — 점선까지 살리려면 모델에 한 필드가 더 든다.
       'stroke-dasharray': (rt.r.rel === 'implement' || rt.r.rel === 'depend') ? '3 3' : undefined,
-      'marker-end': `url(#${m.id})`,
+      'marker-end': rt.r.rel === 'link' ? undefined : `url(#${m.id})`,
     }));
     if (rt.r.label) {
       body.push(...relationLabelChip(rt.r.label, labelAt.x, labelAt.y, theme).body);
+    }
+    // 개수 표기는 선의 양 끝에 붙인다 — 라벨(관계 이름)과 자리가 겹치지 않게
+    // 끝점 바로 안쪽에 둔다.
+    const ends: Array<[string | undefined, number]> = [[rt.r.fromCard, 0], [rt.r.toCard, path.length - 1]];
+    for (const [card, idx] of ends) {
+      if (!card) continue;
+      const at = path[idx]!;
+      const inward = path[idx === 0 ? Math.min(1, path.length - 1) : Math.max(0, path.length - 2)]!;
+      const dx = Math.sign(inward.x - at.x), dy = Math.sign(inward.y - at.y);
+      body.push(...relationLabelChip(card, at.x + dx * 10 + 4, at.y + dy * 14, theme).body);
     }
   }
 
@@ -112,20 +157,28 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     // 이름 칸엔 노드 채움을, 멤버 칸은 투명하게 둔다 — 칸이 나뉜 게 보인다.
     if (c.members.length > 0) {
       body.push(el('rect', {
-        x: p.x, y: p.y, width: p.w, height: m.headH, rx: theme.radius,
+        x: p.x, y: p.y, width: p.w, height: m.headH + (stereotypeLine(c) ? m.rowH : 0), rx: theme.radius,
         fill: theme.nodeFillAlt,
       }));
     }
     body.push(el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: theme.radius, fill: 'none', stroke: theme.nodeBorder, 'stroke-width': 1 }));
-    body.push(text(c.id, {
-      x: p.x + p.w / 2, y: p.y + m.headH / 2 + theme.fontSize / 2.4, 'text-anchor': 'middle',
+    const st = stereotypeLine(c);
+    const headH = m.headH + (st ? m.rowH : 0);
+    if (st) {
+      body.push(text(st, {
+        x: p.x + p.w / 2, y: p.y + m.rowH, 'text-anchor': 'middle',
+        fill: theme.muted, 'fill-opacity': MUTED_OPACITY, 'font-size': m.memberSize, 'font-weight': WEIGHT.member,
+      }));
+    }
+    body.push(text(displayName(c), {
+      x: p.x + p.w / 2, y: p.y + (st ? m.rowH : 0) + m.headH / 2 + theme.fontSize / 2.4, 'text-anchor': 'middle',
       fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
     if (c.members.length > 0) {
-      body.push(el('line', { x1: p.x, y1: p.y + m.headH, x2: p.x + p.w, y2: p.y + m.headH, stroke: theme.lineFaint, 'stroke-width': 1 }));
+      body.push(el('line', { x1: p.x, y1: p.y + headH, x2: p.x + p.w, y2: p.y + headH, stroke: theme.lineFaint, 'stroke-width': 1 }));
       c.members.forEach((mem, i) => {
         body.push(text(mem, {
-          x: p.x + m.memberInset, y: p.y + m.headH + m.memberBaseline + i * m.rowH,
+          x: p.x + m.memberInset, y: p.y + headH + m.memberBaseline + i * m.rowH,
           fill: theme.muted, 'fill-opacity': MUTED_OPACITY, 'font-size': m.memberSize, 'font-weight': WEIGHT.member,
         }));
       });

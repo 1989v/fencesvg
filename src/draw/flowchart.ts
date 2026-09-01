@@ -1,4 +1,4 @@
-import type { FlowModel } from '../parse/types';
+import type { FlowModel, Head, Line, Shape } from '../parse/types';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { entryOffsetFor, routeEdge } from '../layout/edge';
@@ -35,6 +35,54 @@ export function arrowMarker(id: string, line: string): string {
   ]);
 }
 
+/** `--o` 의 속 빈 원. 끝점이 원의 오른쪽 가장자리에 오도록 refX 를 잡는다. */
+export function circleMarker(id: string, line: string, fill: string): string {
+  return el('defs', {}, [
+    el('marker',
+      { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto' },
+      [el('circle', { cx: 5, cy: 5, r: 4, fill, stroke: line, 'stroke-width': 1.2 })]),
+  ]);
+}
+
+/** `--x` 의 가위표. 선 두 개라 polygon 하나로는 못 만든다. */
+export function crossMarker(id: string, line: string): string {
+  return el('defs', {}, [
+    el('marker',
+      { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto' },
+      [
+        el('line', { x1: 1.5, y1: 1.5, x2: 8.5, y2: 8.5, stroke: line, 'stroke-width': 1.6 }),
+        el('line', { x1: 8.5, y1: 1.5, x2: 1.5, y2: 8.5, stroke: line, 'stroke-width': 1.6 }),
+      ]),
+  ]);
+}
+
+/** 시작 쪽 화살촉(양방향 `<-->`). 진행 방향의 반대를 향해야 해서 별도 정의가 필요하다. */
+export function backArrowMarker(id: string, line: string): string {
+  return el('defs', {}, [
+    el('marker',
+      { id, viewBox: '0 0 10 10', refX: 1, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' },
+      [el('polygon', { points: '10,0 0,5 10,10', fill: line })]),
+  ]);
+}
+
+/** 선 종류 → `stroke-dasharray`. 실선·굵은선은 없음. */
+export function dashFor(line: Line): string | undefined {
+  return line === 'dotted' ? '3 3' : undefined;
+}
+
+/** 선 종류 → 굵기. 굵은선만 다르다. */
+export function widthFor(line: Line): number {
+  return line === 'thick' ? 2 : 1;
+}
+
+/** 화살촉 종류 → 그 종류의 marker id. `none` 은 마커를 안 붙인다. */
+export function headId(head: Head, idPrefix: string): string | undefined {
+  if (head === 'none') return undefined;
+  if (head === 'circle') return `${idPrefix}-circle`;
+  if (head === 'cross') return `${idPrefix}-cross`;
+  return `${idPrefix}-arrow`;
+}
+
 /**
  * `isEmphasis` 가 색·굵기·채움을 한 번에 가른다 — 강조는 다이어그램당
  * 최대 1개(파서가 이미 보장)라 여기선 그냥 받은 대로 쓴다.
@@ -42,27 +90,63 @@ export function arrowMarker(id: string, line: string): string {
 function surfaceFor(shape: string, theme: Theme): string {
   // 모양마다 면을 가른다. 전에는 전부 같은 면 하나였고, 바탕 대비가 8/255 라
   // 어두운 화면에서 상자와 배경이 거의 안 갈렸다(2026-09-02 실측).
-  if (shape === 'diamond') return theme.nodeFillAlt;   // 판단 — 눈이 먼저 가야 한다
-  if (shape === 'round') return theme.nodeFillStrong;  // 흐름의 시작 — 강조색을 옅게
+  // 판단 계열(마름모·육각형)은 눈이 먼저 가야 한다.
+  if (shape === 'diamond' || shape === 'hexagon') return theme.nodeFillAlt;
+  // 흐름의 양 끝(둥근 모서리·스타디움·원)은 강조색을 옅게 섞는다.
+  if (shape === 'round' || shape === 'stadium' || shape === 'circle') return theme.nodeFillStrong;
   return theme.nodeFill;
 }
 
-function shapeOf(p: Placed, shape: string, theme: Theme, isEmphasis: boolean): string {
+function shapeOf(p: Placed, shape: Shape, theme: Theme, isEmphasis: boolean): string {
   const stroke = isEmphasis ? theme.accent : theme.nodeBorder;
   const strokeWidth = isEmphasis ? theme.accentStrokeWidth : 1;
   const fill = isEmphasis ? theme.accentFill : surfaceFor(shape, theme);
+  const box = { fill, stroke, 'stroke-width': strokeWidth };
+  const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+  const right = p.x + p.w, bottom = p.y + p.h;
+
   if (shape === 'diamond') {
-    const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    return el('polygon', { points: `${cx},${p.y} ${right},${cy} ${cx},${bottom} ${p.x},${cy}`, ...box });
+  }
+  if (shape === 'hexagon') {
+    // 좌우 끝을 깎은 육각형. 깎는 폭은 높이의 절반이라 어떤 글자 길이에도 모양이 유지된다.
+    const cut = Math.min(p.h / 2, p.w / 3);
     return el('polygon', {
-      points: `${cx},${p.y} ${p.x + p.w},${cy} ${cx},${p.y + p.h} ${p.x},${cy}`,
-      fill, stroke, 'stroke-width': strokeWidth,
+      points: `${p.x + cut},${p.y} ${right - cut},${p.y} ${right},${cy} ${right - cut},${bottom} ${p.x + cut},${bottom} ${p.x},${cy}`,
+      ...box,
     });
   }
-  return el('rect', {
-    x: p.x, y: p.y, width: p.w, height: p.h,
-    rx: shape === 'round' ? p.h / 2 : theme.radius,
-    fill, stroke, 'stroke-width': strokeWidth,
-  });
+  if (shape === 'circle') {
+    // 지름은 짧은 변에 맞춘다 — 긴 쪽으로 늘리면 타원이 되어 원이라는 의미가 사라진다.
+    return el('circle', { cx, cy, r: Math.min(p.w, p.h) / 2, ...box });
+  }
+  if (shape === 'subroutine') {
+    // 사각형 + 안쪽 세로선 두 개. 한 요소로는 못 만들어 g 로 묶는다.
+    const inset = Math.min(8, p.w / 8);
+    return el('g', {}, [
+      el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: theme.radius, ...box }),
+      el('line', { x1: p.x + inset, y1: p.y, x2: p.x + inset, y2: bottom, stroke, 'stroke-width': strokeWidth }),
+      el('line', { x1: right - inset, y1: p.y, x2: right - inset, y2: bottom, stroke, 'stroke-width': strokeWidth }),
+    ]);
+  }
+  if (shape === 'cylinder') {
+    // 저장소. 위 타원 + 몸통, 아래는 몸통 path 가 곡선으로 닫는다.
+    const ry = Math.min(p.h / 5, 10);
+    return el('g', {}, [
+      el('path', {
+        d: `M ${p.x} ${p.y + ry} A ${p.w / 2} ${ry} 0 0 1 ${right} ${p.y + ry}`
+          + ` L ${right} ${bottom - ry} A ${p.w / 2} ${ry} 0 0 1 ${p.x} ${bottom - ry} Z`,
+        ...box,
+      }),
+      el('path', {
+        d: `M ${p.x} ${p.y + ry} A ${p.w / 2} ${ry} 0 0 0 ${right} ${p.y + ry}`,
+        fill: 'none', stroke, 'stroke-width': strokeWidth,
+      }),
+    ]);
+  }
+  // rect · round · stadium — 반경만 다르다.
+  const rx = shape === 'round' || shape === 'stadium' ? p.h / 2 : theme.radius;
+  return el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx, ...box });
 }
 
 export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, label: string): string {
@@ -126,7 +210,16 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   }
   const shift = bbox.shift;
 
-  const body: string[] = [arrowMarker(arrowId, theme.line)];
+  // 이 그림에 실제로 쓰인 화살촉만 정의한다 — 안 쓰는 marker 를 내보내면
+  // 그만큼 바이트가 늘고, 여러 다이어그램이 한 페이지에 있을 때 id 만 늘어난다.
+  const usedHeads = new Set<Head>();
+  for (const e of model.edges) { usedHeads.add(e.head); if (e.backHead) usedHeads.add(e.backHead); }
+  const needsBack = model.edges.some((e) => e.backHead);
+  const body: string[] = [];
+  if (usedHeads.has('arrow') || needsBack) body.push(arrowMarker(arrowId, theme.line));
+  if (usedHeads.has('circle')) body.push(circleMarker(`${idPrefix}-circle`, theme.line, theme.nodeFill));
+  if (usedHeads.has('cross')) body.push(crossMarker(`${idPrefix}-cross`, theme.line));
+  if (needsBack) body.push(backArrowMarker(`${idPrefix}-back`, theme.line));
   // 라벨은 노드보다 나중에 낸다 — 노드가 라벨 자리를 덮으면 배경 칩째로
   // 가려지던 문제(예: 마름모 아래 깔린 간선 라벨)를 막는다. 간선 자체는
   // 지금처럼 노드보다 먼저 그려 노드 밑에 깔린다.
@@ -134,11 +227,17 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
 
   for (const r of routed) {
     const path = r.path.map(shift).map(snapPoint);
+    const endId = headId(r.e.head, idPrefix);
     body.push(el('path', {
       d: pathData(path),
-      fill: 'none', stroke: theme.line, 'stroke-width': 1,
-      'stroke-dasharray': r.e.line === 'dotted' ? '3 3' : undefined,
-      'marker-end': `url(#${arrowId})`,
+      fill: 'none', stroke: theme.line, 'stroke-width': widthFor(r.e.line),
+      'stroke-dasharray': dashFor(r.e.line),
+      'marker-end': endId ? `url(#${endId})` : undefined,
+      // 양방향은 시작 쪽에도 화살촉을 단다. 원·가위표는 방향이 없는 기호라
+      // 시작 쪽에도 같은 것을 쓰고, 화살표만 반대를 향하는 별도 정의를 쓴다.
+      'marker-start': r.e.backHead
+        ? `url(#${r.e.backHead === 'arrow' ? `${idPrefix}-back` : headId(r.e.backHead, idPrefix)})`
+        : undefined,
     }));
     if (r.e.label) {
       const at2 = pointAtFraction(path, r.labelT ?? LABEL_T);

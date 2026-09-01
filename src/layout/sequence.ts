@@ -1,6 +1,11 @@
-import type { SeqModel } from '../parse/sequence';
+import type { SeqModel, SeqStep } from '../parse/sequence';
 import type { Theme } from '../draw/theme';
 import { measureText } from '../text';
+
+/** 행을 차지하는 단계만. activate/deactivate 는 생명선 위의 상자라 행이 없다. */
+export function visibleSteps(model: SeqModel) {
+  return model.steps.filter((s): s is Extract<SeqStep, { t: 'msg' | 'note' }> => s.t === 'msg' || s.t === 'note');
+}
 import { metrics } from '../draw/theme';
 
 
@@ -28,7 +33,7 @@ export function layoutSequence(model: SeqModel, theme: Theme) {
   const widest = new Map<string, number>(
     model.actors.map((a) => [a, measureText(a, theme.fontSize) + m.padX * 2 + m.gap.node]),
   );
-  for (const s of model.steps) {
+  for (const s of visibleSteps(model)) {
     if (s.t === 'note') {
       const need = measureText(s.label, theme.labelSize) + m.padX + Math.round(theme.fontSize / 2);
       widest.set(s.at, Math.max(widest.get(s.at) ?? MIN_COL, need));
@@ -46,7 +51,8 @@ export function layoutSequence(model: SeqModel, theme: Theme) {
     cursor += w;
   }
 
-  const rowY = model.steps.map((_, i) => HEAD_H + TOP_GAP + i * ROW_H);
-  const height = HEAD_H + TOP_GAP + model.steps.length * ROW_H + theme.fontSize;
+  const rows = visibleSteps(model).length;
+  const rowY = Array.from({ length: rows }, (_, i) => HEAD_H + TOP_GAP + i * ROW_H);
+  const height = HEAD_H + TOP_GAP + rows * ROW_H + theme.fontSize;
   return { x, rowY, width: cursor, height, headH: HEAD_H };
 }
