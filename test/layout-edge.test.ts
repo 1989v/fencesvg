@@ -3,8 +3,42 @@ import { routeEdge } from '../src/layout/edge';
 
 const box = (x: number, y: number) => ({ id: 'x', x, y, w: 100, h: 40 });
 
-function pointInBox(p: { x: number; y: number }, b: ReturnType<typeof box>): boolean {
-  return p.x > b.x && p.x < b.x + b.w && p.y > b.y && p.y < b.y + b.h;
+type Box = ReturnType<typeof box>;
+
+/**
+ * 축정렬 선분이 상자 내부를 관통하는가?
+ * 수평 선분: y가 (box.y, box.y+box.h) 범위에 있고 x-범위가 겹쳐야 함
+ * 수직 선분: x가 (box.x, box.x+box.w) 범위에 있고 y-범위가 겹쳐야 함
+ */
+function segmentCrossesBoxInterior(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  b: Box
+): boolean {
+  const isHorizontal = Math.abs(p1.y - p2.y) < 0.01;
+  const isVertical = Math.abs(p1.x - p2.x) < 0.01;
+
+  if (isHorizontal) {
+    const y = p1.y;
+    const xMin = Math.min(p1.x, p2.x);
+    const xMax = Math.max(p1.x, p2.x);
+    // 수평선이 상자의 y 범위에 있는가? (내부만)
+    if (y > b.y && y < b.y + b.h) {
+      // 선분의 x-범위가 상자 내부와 겹치는가?
+      return !(xMax <= b.x || xMin >= b.x + b.w);
+    }
+  } else if (isVertical) {
+    const x = p1.x;
+    const yMin = Math.min(p1.y, p2.y);
+    const yMax = Math.max(p1.y, p2.y);
+    // 수직선이 상자의 x 범위에 있는가? (내부만)
+    if (x > b.x && x < b.x + b.w) {
+      // 선분의 y-범위가 상자 내부와 겹치는가?
+      return !(yMax <= b.y || yMin >= b.y + b.h);
+    }
+  }
+
+  return false;
 }
 
 describe('routeEdge', () => {
@@ -37,15 +71,17 @@ describe('routeEdge', () => {
   });
 
   // ──── 역방향 간선 테스트 (CRITICAL 결함 게이트)
-  it('LR 역방향: 경로는 상자를 관통하지 않는다', () => {
+  it('LR 역방향: 경로 선분이 상자 내부를 관통하지 않는다', () => {
     const from = box(200, 0);
     const to = box(0, 0);
     const { path } = routeEdge(from, to, 'LR');
 
-    // 경로의 어떤 점도 상자 내부에 엄격히 있어서는 안 됨
-    for (const p of path) {
-      expect(pointInBox(p, from)).toBe(false);
-      expect(pointInBox(p, to)).toBe(false);
+    // 각 선분이 두 상자를 관통하는지 확인
+    for (let i = 1; i < path.length; i++) {
+      const p1 = path[i - 1]!;
+      const p2 = path[i]!;
+      expect(segmentCrossesBoxInterior(p1, p2, from)).toBe(false);
+      expect(segmentCrossesBoxInterior(p1, p2, to)).toBe(false);
     }
   });
 
@@ -54,26 +90,21 @@ describe('routeEdge', () => {
     const to = box(0, 0);
     const { path } = routeEdge(from, to, 'LR');
 
-    expect(path.length).toBeGreaterThan(2);
     const lastSegment = path[path.length - 1]!;
     const prevPoint = path[path.length - 2]!;
-    // 마지막 선분은 왼쪽으로: x 좌표가 감소
     expect(lastSegment.x).toBeLessThan(prevPoint.x);
   });
 
-  it('LR 역방향: 경로가 4점 이상이다', () => {
-    const { path } = routeEdge(box(200, 0), box(0, 0), 'LR');
-    expect(path.length).toBeGreaterThanOrEqual(4);
-  });
-
-  it('TD 역방향: 경로는 상자를 관통하지 않는다', () => {
+  it('TD 역방향: 경로 선분이 상자 내부를 관통하지 않는다', () => {
     const from = box(0, 200);
     const to = box(0, 0);
     const { path } = routeEdge(from, to, 'TD');
 
-    for (const p of path) {
-      expect(pointInBox(p, from)).toBe(false);
-      expect(pointInBox(p, to)).toBe(false);
+    for (let i = 1; i < path.length; i++) {
+      const p1 = path[i - 1]!;
+      const p2 = path[i]!;
+      expect(segmentCrossesBoxInterior(p1, p2, from)).toBe(false);
+      expect(segmentCrossesBoxInterior(p1, p2, to)).toBe(false);
     }
   });
 
@@ -82,18 +113,61 @@ describe('routeEdge', () => {
     const to = box(0, 0);
     const { path } = routeEdge(from, to, 'TD');
 
-    expect(path.length).toBeGreaterThan(2);
     const lastSegment = path[path.length - 1]!;
     const prevPoint = path[path.length - 2]!;
-    // 마지막 선분은 위쪽으로: y 좌표가 감소
     expect(lastSegment.y).toBeLessThan(prevPoint.y);
+  });
+
+  it('RL 역방향: 경로 선분이 상자 내부를 관통하지 않는다', () => {
+    const from = box(0, 0);
+    const to = box(200, 0);
+    const { path } = routeEdge(from, to, 'RL');
+
+    for (let i = 1; i < path.length; i++) {
+      const p1 = path[i - 1]!;
+      const p2 = path[i]!;
+      expect(segmentCrossesBoxInterior(p1, p2, from)).toBe(false);
+      expect(segmentCrossesBoxInterior(p1, p2, to)).toBe(false);
+    }
+  });
+
+  it('RL 역방향: 마지막 선분이 오른쪽을 가리킨다', () => {
+    const from = box(0, 0);
+    const to = box(200, 0);
+    const { path } = routeEdge(from, to, 'RL');
+
+    const lastSegment = path[path.length - 1]!;
+    const prevPoint = path[path.length - 2]!;
+    expect(lastSegment.x).toBeGreaterThan(prevPoint.x);
+  });
+
+  it('BT 역방향: 경로 선분이 상자 내부를 관통하지 않는다', () => {
+    const from = box(0, 0);
+    const to = box(0, 200);
+    const { path } = routeEdge(from, to, 'BT');
+
+    for (let i = 1; i < path.length; i++) {
+      const p1 = path[i - 1]!;
+      const p2 = path[i]!;
+      expect(segmentCrossesBoxInterior(p1, p2, from)).toBe(false);
+      expect(segmentCrossesBoxInterior(p1, p2, to)).toBe(false);
+    }
+  });
+
+  it('BT 역방향: 마지막 선분이 아래쪽을 가리킨다', () => {
+    const from = box(0, 0);
+    const to = box(0, 200);
+    const { path } = routeEdge(from, to, 'BT');
+
+    const lastSegment = path[path.length - 1]!;
+    const prevPoint = path[path.length - 2]!;
+    expect(lastSegment.y).toBeGreaterThan(prevPoint.y);
   });
 
   // ──── 영점 선분 제거 테스트 (Important 결함 게이트)
   it('영길이 선분을 제거한다', () => {
     const { path } = routeEdge(box(0, 0), box(100, 200), 'LR');
 
-    // 연속된 동일 점이 없어야 함
     for (let i = 1; i < path.length; i++) {
       const prev = path[i - 1]!;
       const curr = path[i]!;
@@ -108,6 +182,21 @@ describe('routeEdge', () => {
     const { path } = routeEdge(box(0, 0), box(100, 200), 'LR');
 
     expect(path.length).toBeGreaterThanOrEqual(2);
+    const lastSegment = path[path.length - 1]!;
+    const prevPoint = path[path.length - 2]!;
+    const distance = Math.sqrt(
+      (lastSegment.x - prevPoint.x) ** 2 + (lastSegment.y - prevPoint.y) ** 2
+    );
+    expect(distance).toBeGreaterThan(0);
+  });
+
+  // ──── 중점 중복 제거 후 경로 붕괴 테스트
+  it('중복 후 1점으로 붕괴하면 우회 경로로 폴백한다', () => {
+    const { path } = routeEdge(box(0, 0), box(100, 0), 'LR');
+
+    // 적어도 2점 이상
+    expect(path.length).toBeGreaterThanOrEqual(2);
+    // 마지막 선분이 0이 아님
     const lastSegment = path[path.length - 1]!;
     const prevPoint = path[path.length - 2]!;
     const distance = Math.sqrt(

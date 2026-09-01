@@ -21,6 +21,8 @@ function rankAxisDelta(from: Placed, to: Placed, dir: Dir): number {
 
 /** 역방향 간선 판정 */
 function isBackEdge(from: Placed, to: Placed, dir: Dir): boolean {
+  // <= 0: when rank-axis centres tie, normal ports face the wrong way
+  // and a direct line crosses the target box interior. Detour is correct.
   return rankAxisDelta(from, to, dir) <= 0;
 }
 
@@ -149,5 +151,11 @@ export function routeEdge(from: Placed, to: Placed, dir: Dir): { path: Point[]; 
   }
 
   result.path = dedupPoints(result.path);
+
+  // Collapse to one point: fall back to back-edge to ensure renderable path
+  if (result.path.length < 2) {
+    result = routeBackEdge(from, to, dir);
+  }
+
   return result;
 }
