@@ -4,6 +4,8 @@ import { parseState } from './parse/state';
 import { drawState } from './draw/state';
 import { parseEr } from './parse/er';
 import { drawEr } from './draw/er';
+import { parseClass } from './parse/class';
+import { drawClass } from './draw/class';
 import { defaultTheme } from './draw/theme';
 
 export type Options = {
@@ -64,6 +66,11 @@ export function renderDiagram(source: string, opts: Options = {}): Result {
       const model = parseEr(stripLeadingComments(source));
       if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
       return { svg: drawEr(model, theme, idPrefix, label), caption, warnings };
+    }
+    if (/^classDiagram\b/.test(head)) {
+      const model = parseClass(stripLeadingComments(source));
+      if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
+      return { svg: drawClass(model, theme, idPrefix, label), caption, warnings };
     }
     // head 가 빈 문자열이면(소스가 `%%` 주석뿐이라 선언 줄이 아예 없는 경우)
     // split(' ')[0] 도 빈 문자열이라 `?? '(빈 내용)'` 은 안 걸린다(null/undefined
