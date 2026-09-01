@@ -56,6 +56,10 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
   const sy = (n: number) => n + bbox.dy;
 
   const body: string[] = [arrowMarker(arrowId, theme.line)];
+  // 메시지·자기 루프 라벨은 참가자 상자보다 나중에 낸다 — 참가자 상자가
+  // 라벨을 덮어 가리는 걸 막는다(참가자 상자는 지금도 맨 마지막에 그려져
+  // 생명선을 덮는데, 라벨이 그보다 먼저 그려지면 라벨이 상자 밑에 깔린다).
+  const labelBody: string[] = [];
 
   // 생명선 먼저 — 메시지가 그 위에 얹히고, 참가자 상자가 맨 위를 덮는다. faint 로
   // 낮춰(구분선 역할) 메시지·참가자 상자보다 한 단 죽인다.
@@ -90,7 +94,7 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
         'stroke-dasharray': s.line === 'dotted' ? '3 3' : undefined,
         'marker-end': `url(#${arrowId})`,
       }));
-      body.push(...edgeLabel(s.label, cx + LOOP_W / 2, y, theme).body);
+      labelBody.push(...edgeLabel(s.label, cx + LOOP_W / 2, y, theme).body);
       return;
     }
     const p1 = snapPoint({ x: sx(lay.x.get(s.from)!), y });
@@ -101,7 +105,7 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
       'stroke-dasharray': s.line === 'dotted' ? '3 3' : undefined,
       'marker-end': `url(#${arrowId})`,
     }));
-    body.push(...edgeLabel(s.label, (p1.x + p2.x) / 2, y, theme).body);
+    labelBody.push(...edgeLabel(s.label, (p1.x + p2.x) / 2, y, theme).body);
   });
 
   // 참가자 상자를 마지막에 — 생명선 위를 덮는다. 노드 채움을 줘 배경에서 뜨게 한다.
@@ -118,6 +122,8 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
       'text-anchor': 'middle', fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
   }
+
+  body.push(...labelBody);
 
   return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 6 });
 }

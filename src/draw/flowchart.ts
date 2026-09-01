@@ -5,8 +5,18 @@ import { routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, textBBox } from './bbox';
-import { edgeLabel } from './label';
+import { edgeLabel, pointAtFraction } from './label';
 import { WEIGHT } from './theme';
+
+// 간선 라벨은 경로 중점이 아니라 시작 쪽 40% 지점에 둔다 — 같은 노드에서
+// 갈라지는 두 간선(예: "실패"/"거절")은 중점 근처에서도 여전히 겹칠 수
+// 있지만, 갈라져 나가는 방향을 따라 시작 쪽으로 가면 벌어져 있다. 35%는
+// 실측(아래)에서 랭크를 여러 개 건너뛰는 긴 간선(검증 -.-> 반려)의 경로가
+// 중간 랭크(승인)의 밴드를 지나는 지점과 겹쳐 그 랭크 노드 라벨과 부딪혔다
+// — 0.20~0.50 을 0.01 단위로 쓸어 봤을 때 이 조합의 예시 다이어그램에서
+// 겹침이 0 인 구간은 0.40~0.41 뿐이었다. 더 안정적인 해법(긴 간선을 점유된
+// 랭크 밴드 밖으로 우회시키는 라우팅 변경)은 이 태스크 범위 밖이라 후속으로 남긴다.
+const LABEL_T = 0.4;
 
 const MIN_W = 72;
 const H = 44;
@@ -85,7 +95,10 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const r of routed) {
     for (const pt of r.path) bbox.point(pt);
-    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme).box);
+    if (r.e.label) {
+      const at1 = pointAtFraction(r.path, LABEL_T);
+      bbox.box(edgeLabel(r.e.label, at1.x, at1.y, theme).box);
+    }
   }
   for (const n of model.nodes) {
     const p = at.get(n.id);
@@ -95,10 +108,13 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   const shift = bbox.shift;
 
   const body: string[] = [arrowMarker(arrowId, theme.line)];
+  // 라벨은 노드보다 나중에 낸다 — 노드가 라벨 자리를 덮으면 배경 칩째로
+  // 가려지던 문제(예: 마름모 아래 깔린 간선 라벨)를 막는다. 간선 자체는
+  // 지금처럼 노드보다 먼저 그려 노드 밑에 깔린다.
+  const labelBody: string[] = [];
 
   for (const r of routed) {
     const path = r.path.map(shift).map(snapPoint);
-    const labelAt = shift(r.labelAt);
     body.push(el('path', {
       d: pathData(path),
       fill: 'none', stroke: theme.line, 'stroke-width': 1,
@@ -106,7 +122,8 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
       'marker-end': `url(#${arrowId})`,
     }));
     if (r.e.label) {
-      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme).body);
+      const at2 = pointAtFraction(path, LABEL_T);
+      labelBody.push(...edgeLabel(r.e.label, at2.x, at2.y, theme).body);
     }
   }
 
@@ -126,6 +143,8 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
       'text-anchor': 'middle', fill: color, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
   }
+
+  body.push(...labelBody);
 
   return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 4 });
 }

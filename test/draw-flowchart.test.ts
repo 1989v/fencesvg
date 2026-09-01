@@ -193,6 +193,54 @@ describe('drawFlowchart — 마름모 라벨', () => {
   });
 });
 
+describe('drawFlowchart — 라벨은 노드 위에, 라벨끼리는 안 겹친다', () => {
+  // 실사용 규모 예시 — 검증/승인/부족 세 갈림길에서 각각 두 간선이 갈라진다.
+  // "실패"/"거절" 처럼 같은 노드에서 나가는 두 라벨이 겹치는지, "재고 충분"
+  // 마름모 아래 깔린 "승인" 라벨이 노드에 가려지는지를 스크린샷으로 발견했다.
+  const src = `flowchart TD
+  주문접수 --> 검증{입력 검증}
+  검증 -->|통과| 결제요청
+  검증 -.->|실패| 반려[반려 안내]
+  결제요청 --> 승인{승인 여부}
+  승인 -->|승인| 재고예약
+  승인 -.->|거절| 재시도{재시도 가능}
+  재시도 -->|가능| 결제요청
+  재시도 -.->|불가| 반려
+  재고예약 --> 부족{재고 충분}
+  부족 -->|충분| 출고지시
+  부족 -.->|부족| 입고대기[입고 대기]
+  입고대기 --> 재고예약
+  출고지시 --> 완료[주문 완료]
+  class 출고지시 emphasis`;
+  const out = draw(src);
+
+  it('라벨 텍스트 상자끼리 겹치지 않는다', () => {
+    const boxes = textBoxes(out);
+    const overlaps: string[] = [];
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i]!, b = boxes[j]!;
+        const overlapX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
+        const overlapY = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
+        if (overlapX > 0 && overlapY > 0) overlaps.push(`#${i}×#${j} (${overlapX.toFixed(1)}×${overlapY.toFixed(1)}px)`);
+      }
+    }
+    expect(overlaps, `겹치는 텍스트 상자: ${overlaps.join(', ')}`).toEqual([]);
+  });
+
+  it('라벨 배경 칩(rx=3 rect)은 문서 순서상 모든 노드 rect 뒤에 나온다 — 위에 덮여 그려진다', () => {
+    const lines = out.split('\n');
+    const rectLines = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.startsWith('<rect'));
+    const chipIdx = rectLines.filter(({ l }) => /rx="3"/.test(l)).map(({ i }) => i);
+    const nodeIdx = rectLines.filter(({ l }) => !/rx="3"/.test(l)).map(({ i }) => i);
+    expect(chipIdx.length, '라벨 칩 rect 가 없다').toBeGreaterThan(0);
+    expect(nodeIdx.length, '노드 rect 가 없다').toBeGreaterThan(0);
+    const lastNode = Math.max(...nodeIdx);
+    const firstChip = Math.min(...chipIdx);
+    expect(firstChip, `첫 라벨 칩(줄 ${firstChip})이 마지막 노드 rect(줄 ${lastNode})보다 앞에 있다`).toBeGreaterThan(lastNode);
+  });
+});
+
 describe('drawFlowchart — 경계 사례', () => {
   it('빈 라벨(A[]) 노드도 예외 없이 렌더되고 빈 줄이 안 생긴다', () => {
     const out = draw('flowchart LR\n A[] --> B[b]');

@@ -6,12 +6,15 @@ import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { arrowMarker } from './flowchart';
 import { ContentBBox, textBBox } from './bbox';
-import { edgeLabel } from './label';
+import { edgeLabel, pointAtFraction } from './label';
 import { WEIGHT } from './theme';
 
 const TERMINAL = 14;
 const MIN_W = 72;
 const H = 40;
+// 라벨을 경로 중점이 아니라 시작 쪽 40% 지점에 — 한 노드에서 갈라지는 간선끼리
+// 라벨이 안 겹치게. 값의 근거는 draw/flowchart.ts 의 LABEL_T 주석 참고.
+const LABEL_T = 0.4;
 
 export function drawState(model: FlowModel, theme: Theme, idPrefix: string, label: string): string {
   const isTerminal = (id: string) => id.startsWith('__t');
@@ -35,7 +38,10 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const r of routed) {
     for (const pt of r.path) bbox.point(pt);
-    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme).box);
+    if (r.e.label) {
+      const at1 = pointAtFraction(r.path, LABEL_T);
+      bbox.box(edgeLabel(r.e.label, at1.x, at1.y, theme).box);
+    }
   }
   for (const n of model.nodes) {
     const p = at.get(n.id);
@@ -45,17 +51,20 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   const shift = bbox.shift;
 
   const body: string[] = [arrowMarker(arrowId, theme.line)];
+  // 라벨은 노드보다 나중에 — 노드가 라벨을 덮어 가리는 걸 막는다. 간선
+  // 자체는 지금처럼 노드보다 먼저 그려 노드 밑에 깔린다.
+  const labelBody: string[] = [];
 
   for (const r of routed) {
     const path = r.path.map(shift).map(snapPoint);
-    const labelAt = shift(r.labelAt);
     body.push(el('path', {
       d: pathData(path),
       fill: 'none', stroke: theme.line, 'stroke-width': 1,
       'marker-end': `url(#${arrowId})`,
     }));
     if (r.e.label) {
-      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme).body);
+      const at2 = pointAtFraction(path, LABEL_T);
+      labelBody.push(...edgeLabel(r.e.label, at2.x, at2.y, theme).body);
     }
   }
 
@@ -77,6 +86,8 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
       'text-anchor': 'middle', fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
   }
+
+  body.push(...labelBody);
 
   return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 4 });
 }

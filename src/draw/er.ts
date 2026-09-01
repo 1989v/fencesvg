@@ -5,10 +5,13 @@ import { routeEdge, type Point } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, textBBox } from './bbox';
-import { edgeLabel } from './label';
+import { edgeLabel, pointAtFraction } from './label';
 import { WEIGHT } from './theme';
 
 const H = 44;
+// 라벨을 경로 중점이 아니라 시작 쪽 40% 지점에 — 한 엔티티에서 갈라지는 관계끼리
+// 라벨이 안 겹치게. 값의 근거는 draw/flowchart.ts 의 LABEL_T 주석 참고.
+const LABEL_T = 0.4;
 
 /**
  * 까마귀발 표기에 쓰는 원점들. `at` 은 선이 엔티티 상자에 닿는 점,
@@ -83,7 +86,10 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const rt of routed) {
     for (const pt of rt.path) bbox.point(pt);
-    if (rt.r.label) bbox.box(edgeLabel(rt.r.label, rt.labelAt.x, rt.labelAt.y, theme).box);
+    if (rt.r.label) {
+      const at1 = pointAtFraction(rt.path, LABEL_T);
+      bbox.box(edgeLabel(rt.r.label, at1.x, at1.y, theme).box);
+    }
     const from = rt.path[0]!, fromNext = rt.path[1]!;
     const to = rt.path[rt.path.length - 1]!, toPrev = rt.path[rt.path.length - 2]!;
     for (const pt of crowExtent(from, fromNext, rt.r.fromCard)) bbox.point(pt);
@@ -97,10 +103,12 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
   const shift = bbox.shift;
 
   const body: string[] = [];
+  // 라벨은 엔티티보다 나중에 — 엔티티가 라벨을 덮어 가리는 걸 막는다. 간선
+  // 경로·까마귀발 기호는 지금처럼 엔티티보다 먼저 그려 엔티티 밑에 깔린다.
+  const labelBody: string[] = [];
 
   for (const rt of routed) {
     const path = rt.path.map(shift).map(snapPoint);
-    const labelAt = shift(rt.labelAt);
     body.push(el('path', {
       d: pathData(path),
       fill: 'none', stroke: theme.line, 'stroke-width': 1,
@@ -108,7 +116,8 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     body.push(...crow(path[0]!, path[1]!, rt.r.fromCard, theme.line));
     body.push(...crow(path[path.length - 1]!, path[path.length - 2]!, rt.r.toCard, theme.line));
     if (rt.r.label) {
-      body.push(...edgeLabel(rt.r.label, labelAt.x, labelAt.y, theme).body);
+      const at2 = pointAtFraction(path, LABEL_T);
+      labelBody.push(...edgeLabel(rt.r.label, at2.x, at2.y, theme).body);
     }
   }
 
@@ -125,6 +134,8 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
       'text-anchor': 'middle', fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
   }
+
+  body.push(...labelBody);
 
   return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 6 });
 }

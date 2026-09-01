@@ -1,4 +1,4 @@
-import { el, text } from '../svg';
+import { el, text, type Pt } from '../svg';
 import { measureText } from '../text';
 import { WEIGHT, type Theme } from './theme';
 import type { Box } from './bbox';
@@ -8,6 +8,34 @@ import type { Box } from './bbox';
 export const GAP = 8;
 export const PAD_X = 5;
 export const PAD_Y = 3;
+
+/**
+ * 폴리라인을 따라 전체 길이의 `t`(0~1) 지점 좌표를 구한다 — 간선 라벨을
+ * 중점(0.5) 대신 35% 지점에 두는 데 쓴다. 한 노드에서 갈라져 나가는 두
+ * 간선은 시작점 근처에서 거의 겹치지만 갈라지는 방향을 따라 빠르게
+ * 벌어지므로, 중점보다 시작 쪽에 가까운 지점이 두 라벨을 확실히 떼어
+ * 놓는다 — 그대로 두면 예를 들어 같은 판단 노드에서 나가는 "실패"/"거절"
+ * 라벨이 겹쳐 보인다. 드로어마다 따로 걷지 않도록 여기 한 곳에 모은다.
+ */
+export function pointAtFraction(path: Pt[], t: number): Pt {
+  if (path.length === 0) return { x: 0, y: 0 };
+  if (path.length === 1) return path[0]!;
+  const segLens = path.slice(1).map((p, i) => Math.hypot(p.x - path[i]!.x, p.y - path[i]!.y));
+  const total = segLens.reduce((a, b) => a + b, 0);
+  if (total === 0) return path[0]!;
+  let remaining = total * t;
+  for (let i = 0; i < segLens.length; i++) {
+    const segLen = segLens[i]!;
+    const isLast = i === segLens.length - 1;
+    if (remaining <= segLen || isLast) {
+      const frac = segLen === 0 ? 0 : Math.min(1, Math.max(0, remaining / segLen));
+      const a = path[i]!, b = path[i + 1]!;
+      return { x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac };
+    }
+    remaining -= segLen;
+  }
+  return path[path.length - 1]!;
+}
 
 /**
  * 간선 라벨을 배경 칩과 함께 낸다 — 라벨이 선 위에 얹혀 안 읽히는 걸 막는다.
