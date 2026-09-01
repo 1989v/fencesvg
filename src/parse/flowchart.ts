@@ -15,41 +15,69 @@ const NODE = /^([\p{L}\p{N}_]+)(?:\[([^\]]*)\]|\(([^)]*)\)|\{([^}]*)\})?$/u;
 // 않는다. sticky(y) 라서 lastIndex 위치에서 시작하는 매치만 본다 — 한 줄을
 // 왼쪽에서 오른쪽으로 훑으며 화살표를 찾고, 그 사이사이가 노드 토큰이다.
 // `A --> B --> C` 같은 체인도 이 스캔 하나로 처리된다(화살표가 여럿이면
-// 노드도 여럿).
-//
-// 이 스캔은 대괄호 안팎을 구분하지 않는다 — 라벨 안에 공백 없는 화살표가
-// 있으면(`A[go-->ok]`) 그것도 구분자로 잡혀 잘못 쪼개진다. 대괄호를 아는
-// 스캐너로 막을 수도 있지만 이번 요청은 "한 줄을 훑는 토크나이저 하나"였지
-// 라벨 내부를 보호하는 문법 확장이 아니라 넓히지 않았다 — 잘못 쪼개진
-// 반쪽은 NODE 에 안 맞아 여전히 에러로 끝난다(틀린 그래프가 아니라).
+// 노드도 여럿). |라벨| 은 이 정규식 자체가 통째로 삼키므로 라벨 안의
+// "-->" 같은 문자는(`A -->|a-->b| B`) 스캔 대상이 아니다 — 이미 안전하다.
 const ARROW = /(-\.->|-{2}>)\s*(?:\|([^|]*)\|)?\s*/y;
 
 function node(token: string): { node: FlowNode } | ParseError {
-  const m = NODE.exec(token.trim());
-  if (!m) return { error: `읽을 수 없는 노드: ${token.trim()}` };
+  const trimmed = token.trim();
+  const m = NODE.exec(trimmed);
+  if (!m) {
+    // 하이픈은 화살표와 헷갈려 id 문자에서 뺐다(위 NODE 주석) — 실무에서
+    // 가장 흔히 걸리는 이유이니 이유까지 알려준다. 대괄호가 섞인 토큰은
+    // (안 닫힌 괄호처럼) 다른 이유로도 못 읽을 수 있으니 괄호가 하나도
+    // 없을 때만 이 힌트를 붙인다 — 엉뚱한 원인을 짚지 않도록
+    const bareId = !/[[({]/.test(trimmed);
+    const reason = bareId && trimmed.includes('-')
+      ? ' — id 에 쓸 수 있는 건 글자·숫자·_ 뿐이다(- 는 화살표와 헷갈려 id 문자에서 뺐다)'
+      : '';
+    return { error: `읽을 수 없는 노드: ${trimmed}${reason}` };
+  }
   const id = m[1]!;
   const shape: Shape = m[3] !== undefined ? 'round' : m[4] !== undefined ? 'diamond' : 'rect';
   const label = m[2] ?? m[3] ?? m[4] ?? id;
   return { node: { id, label, shape } };
 }
 
-/** 한 줄을 화살표 기준으로 노드 토큰 N+1개·화살표 N개로 쪼갠다(체인 지원). */
+/**
+ * 한 줄을 화살표 기준으로 노드 토큰 N+1개·화살표 N개로 쪼갠다(체인 지원).
+ * `[` `(` `{` 로 들어가고 `]` `)` `}` 로 나오는 깊이를 세어, 대괄호 안에서는
+ * 화살표를 구분자로 보지 않는다 — 라벨 안에 있는 "-->" 는(공백이 있든
+ * 없든) 파서가 들여다볼 대상이 아니라 사용자가 쓴 글자일 뿐이다. 대괄호가
+ * 안 닫히면(`A[go --> B`) 깊이가 0으로 안 돌아와 나머지 줄이 통째로 한
+ * 토큰이 되고, 그건 NODE 에 안 맞아 에러로 끝난다 — 그 이상 대괄호 짝을
+ * 검증하지는 않는다.
+ */
 function tokenizeChain(line: string): { tokens: string[]; arrows: { line: Line; label?: string }[] } {
   const tokens: string[] = [];
   const arrows: { line: Line; label?: string }[] = [];
   let segStart = 0;
+  let depth = 0;
   let i = 0;
   while (i < line.length) {
-    ARROW.lastIndex = i;
-    const m = ARROW.exec(line);
-    if (m) {
-      tokens.push(line.slice(segStart, i));
-      arrows.push({ line: m[1] === '-.->' ? 'dotted' : 'solid', label: m[2]?.trim() || undefined });
-      i += m[0].length;
-      segStart = i;
-    } else {
+    const ch = line[i];
+    if (ch === '[' || ch === '(' || ch === '{') {
+      depth++;
       i++;
+      continue;
     }
+    if (ch === ']' || ch === ')' || ch === '}') {
+      depth = Math.max(0, depth - 1);
+      i++;
+      continue;
+    }
+    if (depth === 0) {
+      ARROW.lastIndex = i;
+      const m = ARROW.exec(line);
+      if (m) {
+        tokens.push(line.slice(segStart, i));
+        arrows.push({ line: m[1] === '-.->' ? 'dotted' : 'solid', label: m[2]?.trim() || undefined });
+        i += m[0].length;
+        segStart = i;
+        continue;
+      }
+    }
+    i++;
   }
   tokens.push(line.slice(segStart));
   return { tokens, arrows };
@@ -90,9 +118,16 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
     }
 
     // 화살표가 N 개면 노드 토큰은 N+1 개다 — 선행 화살표(맨 앞이 빔)나
-    // 후행 화살표(맨 뒤가 빔)는 빈 토큰이 NODE 에 안 맞아 자연히 에러가 된다
+    // 후행 화살표(맨 뒤가 빔)는 빈 토큰이 된다. NODE 에도 안 맞긴 하지만
+    // "읽을 수 없는 노드: " 처럼 빈 꼬리로 끝나는 메시지는 안 도와주므로
+    // 화살표 쪽·방향까지 짚어 알려준다
     const chainNodes: FlowNode[] = [];
-    for (const t of tokens) {
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i]!;
+      if (t.trim() === '') {
+        const side = i === 0 ? '앞' : '뒤';
+        return { error: `화살표 ${side}에 노드가 없다: ${line}` };
+      }
       const r = node(t);
       if ('error' in r) return r;
       chainNodes.push(r.node);
