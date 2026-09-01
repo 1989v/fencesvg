@@ -1,7 +1,7 @@
 import type { ClassModel, ClassRel } from '../parse/class';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
-import { routeEdge } from '../layout/edge';
+import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, type Box } from './bbox';
@@ -63,10 +63,17 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
   const lay = layoutGraph(nodes, model.rels.map((r) => ({ from: r.to, to: r.from })), 'TD');
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
+  const inboundCount = new Map<string, number>();
+  for (const r of model.rels) inboundCount.set(r.to, (inboundCount.get(r.to) ?? 0) + 1);
+  const slot = new Map<string, number>();
+
   const routed = model.rels.flatMap((r) => {
     const from = at.get(r.from), to = at.get(r.to);
     if (!from || !to) return [];
-    return [{ r, ...routeEdge(from, to, 'BT') }];
+    const i = slot.get(r.to) ?? 0;
+    slot.set(r.to, i + 1);
+    const off = entryOffsetFor(to, 'BT', i, inboundCount.get(r.to) ?? 1);
+    return [{ r, ...routeEdge(from, to, 'BT', off) }];
   });
 
   // 상자만으로 잰 layoutGraph 의 width/height 밖으로 나갈 수 있는 것들 —

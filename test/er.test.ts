@@ -163,3 +163,38 @@ describe('drawEr — bbox 는 텍스트와 순환 간선을 포함한다', () =>
     }
   });
 });
+
+describe('간선 라벨이 엔티티 이름을 덮지 않는다', () => {
+  // 2026-09-01 실측: `owns` 칩이 `ORDER` 상자 한가운데에 놓여 엔티티 이름을
+  // 통째로 가렸다. 라벨은 엔티티보다 나중에 그려서 위로 올라오기 때문에
+  // 자리가 겹치면 엔티티 쪽이 진다.
+  const src = `erDiagram
+  MEMBER ||--o{ ORDER : places
+  ORDER ||--o{ ORDER_ITEM : contains
+  ORDER_ITEM }o--|| PRODUCT : refers
+  ORDER ||--|| PAYMENT : settles
+  PRODUCT }o--|| CATEGORY : belongs
+  MEMBER ||--o{ ADDRESS : owns
+  ORDER }o--|| ADDRESS : ships`;
+  const m = parseEr(src);
+  if ('error' in m) throw new Error(m.error);
+  const out = drawEr(m, defaultTheme(), 'd', '설명');
+
+  it('라벨 칩이 어느 엔티티 상자와도 겹치지 않는다', () => {
+    const chips = [...out.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" rx="3"/g)]
+      .map((c) => ({ x: +c[1]!, y: +c[2]!, w: +c[3]!, h: +c[4]! }));
+    const boxes = [...out.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" rx="(?!3")/g)]
+      .map((c) => ({ x: +c[1]!, y: +c[2]!, w: +c[3]!, h: +c[4]! }));
+    expect(chips.length, '라벨 칩이 하나도 없다').toBeGreaterThan(0);
+    expect(boxes.length, '엔티티 상자가 하나도 없다').toBeGreaterThan(0);
+    const hits: string[] = [];
+    for (const c of chips) {
+      for (const b of boxes) {
+        const ox = Math.min(c.x + c.w, b.x + b.w) - Math.max(c.x, b.x);
+        const oy = Math.min(c.y + c.h, b.y + b.h) - Math.max(c.y, b.y);
+        if (ox > 0 && oy > 0) hits.push(`칩(${c.x},${c.y}) × 상자(${b.x},${b.y}) ${ox.toFixed(1)}×${oy.toFixed(1)}px`);
+      }
+    }
+    expect(hits, `엔티티를 덮은 라벨: ${hits.join(', ')}`).toEqual([]);
+  });
+});

@@ -196,3 +196,41 @@ describe('drawClass — bbox 는 텍스트와 순환 관계를 포함한다', ()
     }
   });
 });
+
+describe('한 클래스로 들어오는 간선이 여럿일 때', () => {
+  // 2026-09-01 실측: 상속 둘과 연관 하나가 Payment 아래 같은 점에 꽂혀
+  // 화살촉 셋이 정확히 포개졌다. 화면에는 상속 삼각형 하나만 보여서
+  // 연관(`uses`)이 상속처럼 읽혔다.
+  const src = `classDiagram
+  class Payment {
+    +approve()
+  }
+  class CardPayment {
+    +approve()
+  }
+  class PointPayment {
+    +approve()
+  }
+  class Order {
+    +pay()
+  }
+  Payment <|-- CardPayment
+  Payment <|-- PointPayment
+  Order --> Payment : uses`;
+  const m = parseClass(src);
+  if ('error' in m) throw new Error(m.error);
+  const out = drawClass(m, defaultTheme(), 'd', '설명');
+
+  it('화살촉이 같은 점에 포개지지 않는다', () => {
+    const ends = [...out.matchAll(/<path d="([^"]*)"[^>]*marker-end=/g)]
+      .map((p) => p[1]!.trim().split(/(?=[ML])/).pop()!.trim());
+    expect(ends.length).toBe(3);
+    expect(new Set(ends).size, `끝점이 겹친다: ${ends.join(' | ')}`).toBe(3);
+  });
+
+  it('연관은 상속 삼각형이 아니라 평범한 화살촉을 쓴다', () => {
+    const markers = [...out.matchAll(/marker-end="url\(#([^)]*)\)"/g)].map((m2) => m2[1]!);
+    expect(markers.filter((x) => x.endsWith('-tri')).length).toBe(2);
+    expect(markers.filter((x) => x.endsWith('-arrow')).length).toBe(1);
+  });
+});

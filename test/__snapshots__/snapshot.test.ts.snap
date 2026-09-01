@@ -29,8 +29,8 @@ exports[`스냅샷: er-기본 > 출력이 고정된다 1`] = `
 <text x="44" y="26" text-anchor="middle" fill="var(--fs-ink, currentColor)" font-size="12" font-weight="600">ORDER</text>
 <rect x="144" y="0" width="88" height="44" rx="var(--fs-radius, 6)" fill="var(--fs-node-fill, color-mix(in srgb, currentColor 3.5%, transparent))" stroke="var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1"/>
 <text x="188" y="26" text-anchor="middle" fill="var(--fs-ink, currentColor)" font-size="12" font-weight="600">ITEM</text>
-<rect x="86.68" y="5.8" width="47.44" height="15.45" rx="3" fill="var(--fs-label-chip, color-mix(in srgb, currentColor 6%, transparent))"/>
-<text x="110.4" y="16" text-anchor="middle" fill="var(--fs-label, color-mix(in srgb, currentColor 58%, transparent))" font-size="9" font-weight="500">contains</text>
+<rect x="92.28" y="5.8" width="47.44" height="15.45" rx="3" fill="var(--fs-label-chip, color-mix(in srgb, currentColor 6%, transparent))"/>
+<text x="116" y="16" text-anchor="middle" fill="var(--fs-label, color-mix(in srgb, currentColor 58%, transparent))" font-size="9" font-weight="500">contains</text>
 </svg>"
 `;
 

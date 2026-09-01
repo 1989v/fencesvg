@@ -1,11 +1,11 @@
 import type { ErModel, Card } from '../parse/er';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
-import { routeEdge, type Point } from '../layout/edge';
+import { entryOffsetFor, routeEdge, type Point } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
-import { ContentBBox, textBBox } from './bbox';
-import { edgeLabel, pointAtFraction } from './label';
+import { ContentBBox, textBBox, type Box } from './bbox';
+import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
 import { WEIGHT } from './theme';
 
 const H = 44;
@@ -74,21 +74,33 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
   const lay = layoutGraph(nodes, edges, 'LR');
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
+  const inboundCount = new Map<string, number>();
+  for (const r of model.rels) inboundCount.set(r.to, (inboundCount.get(r.to) ?? 0) + 1);
+  const slot = new Map<string, number>();
+
   const routed = model.rels.flatMap((r) => {
     const from = at.get(r.from), to = at.get(r.to);
     if (!from || !to) return [];
-    return [{ r, ...routeEdge(from, to, 'LR') }];
+    const i = slot.get(r.to) ?? 0;
+    slot.set(r.to, i + 1);
+    const off = entryOffsetFor(to, 'LR', i, inboundCount.get(r.to) ?? 1);
+    return [{ r, labelT: LABEL_T, ...routeEdge(from, to, 'LR', off) }];
   });
 
   // 상자만으로 잰 layoutGraph 의 width/height 밖으로 나갈 수 있는 것들:
   // 뒤로 가는 간선의 우회 경로, 관계 라벨 텍스트, 그리고 상자 모서리 바로
   // 밖으로 퍼지는 까마귀발 기호. 전부 모아 콘텐츠 bbox 를 구한다.
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
+  // 라벨은 먼저 놓인 것부터 자리를 차지한다 — 뒤에 오는 라벨이 이걸 피한다.
+  const placedLabels: Box[] = [];
   for (const rt of routed) {
     for (const pt of rt.path) bbox.point(pt);
     if (rt.r.label) {
-      const at1 = pointAtFraction(rt.path, LABEL_T);
-      bbox.box(edgeLabel(rt.r.label, at1.x, at1.y, theme).box);
+      rt.labelT = chooseLabelT(rt.path, rt.r.label, theme, lay.nodes, placedLabels);
+      const at1 = pointAtFraction(rt.path, rt.labelT);
+      const chip = edgeLabel(rt.r.label, at1.x, at1.y, theme).box;
+      placedLabels.push(chip);
+      bbox.box(chip);
     }
     const from = rt.path[0]!, fromNext = rt.path[1]!;
     const to = rt.path[rt.path.length - 1]!, toPrev = rt.path[rt.path.length - 2]!;
@@ -116,7 +128,7 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     body.push(...crow(path[0]!, path[1]!, rt.r.fromCard, theme.line));
     body.push(...crow(path[path.length - 1]!, path[path.length - 2]!, rt.r.toCard, theme.line));
     if (rt.r.label) {
-      const at2 = pointAtFraction(path, LABEL_T);
+      const at2 = pointAtFraction(path, rt.labelT ?? LABEL_T);
       labelBody.push(...edgeLabel(rt.r.label, at2.x, at2.y, theme).body);
     }
   }

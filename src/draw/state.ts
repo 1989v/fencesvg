@@ -1,12 +1,12 @@
 import type { FlowModel } from '../parse/types';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
-import { routeEdge } from '../layout/edge';
+import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { arrowMarker } from './flowchart';
-import { ContentBBox, textBBox } from './bbox';
-import { edgeLabel, pointAtFraction } from './label';
+import { ContentBBox, textBBox, type Box } from './bbox';
+import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
 import { WEIGHT } from './theme';
 
 const TERMINAL = 14;
@@ -26,21 +26,33 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 
+  const inboundCount = new Map<string, number>();
+  for (const e of model.edges) inboundCount.set(e.to, (inboundCount.get(e.to) ?? 0) + 1);
+  const slot = new Map<string, number>();
+
   const routed = model.edges.flatMap((e) => {
     const from = at.get(e.from), to = at.get(e.to);
     if (!from || !to) return [];
-    return [{ e, ...routeEdge(from, to, model.dir) }];
+    const i = slot.get(e.to) ?? 0;
+    slot.set(e.to, i + 1);
+    const off = entryOffsetFor(to, model.dir, i, inboundCount.get(e.to) ?? 1);
+    return [{ e, labelT: LABEL_T, ...routeEdge(from, to, model.dir, off) }];
   });
 
   // routeEdge 의 역방향 우회 경로와 라벨 텍스트는 layoutGraph 가 상자만으로
   // 잰 width/height 바깥으로 나갈 수 있다 — 실제로 그려질 모든 것(상자 +
   // 간선 경로 + 라벨)을 모아 콘텐츠 bbox 를 구하고 원점을 0 으로 옮긴다.
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
+  // 라벨은 먼저 놓인 것부터 자리를 차지한다 — 뒤에 오는 라벨이 이걸 피한다.
+  const placedLabels: Box[] = [];
   for (const r of routed) {
     for (const pt of r.path) bbox.point(pt);
     if (r.e.label) {
-      const at1 = pointAtFraction(r.path, LABEL_T);
-      bbox.box(edgeLabel(r.e.label, at1.x, at1.y, theme).box);
+      r.labelT = chooseLabelT(r.path, r.e.label, theme, lay.nodes, placedLabels);
+      const at1 = pointAtFraction(r.path, r.labelT);
+      const chip = edgeLabel(r.e.label, at1.x, at1.y, theme).box;
+      placedLabels.push(chip);
+      bbox.box(chip);
     }
   }
   for (const n of model.nodes) {
@@ -63,7 +75,7 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
       'marker-end': `url(#${arrowId})`,
     }));
     if (r.e.label) {
-      const at2 = pointAtFraction(path, LABEL_T);
+      const at2 = pointAtFraction(path, r.labelT ?? LABEL_T);
       labelBody.push(...edgeLabel(r.e.label, at2.x, at2.y, theme).body);
     }
   }

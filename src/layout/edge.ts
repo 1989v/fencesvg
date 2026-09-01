@@ -30,7 +30,7 @@ function isBackEdge(from: Placed, to: Placed, dir: Dir): boolean {
  * LR/RL/TD/BT 방향에 따라 정규 경로를 구성한다.
  * aligned 시 2점, 아니면 4점 S-curve.
  */
-function routeForward(from: Placed, to: Placed, dir: Dir, aligned: boolean): Point[] {
+function routeForward(from: Placed, to: Placed, dir: Dir, aligned: boolean, entryOffset = 0): Point[] {
   const fromC = center(from);
   const toC = center(to);
   const a = dir === 'LR' ? { x: from.x + from.w, y: fromC.y } :
@@ -38,10 +38,13 @@ function routeForward(from: Placed, to: Placed, dir: Dir, aligned: boolean): Poi
             dir === 'TD' ? { x: fromC.x, y: from.y + from.h } :
             /* BT */ { x: fromC.x, y: from.y };
 
-  const b = dir === 'LR' ? { x: to.x, y: toC.y } :
-            dir === 'RL' ? { x: to.x + to.w, y: toC.y } :
-            dir === 'TD' ? { x: toC.x, y: to.y } :
-            /* BT */ { x: toC.x, y: to.y + to.h };
+  // 여러 간선이 한 노드로 들어오면 진입점이 정확히 겹쳐 화살촉이 포개진다 —
+  // 실측에서 클래스도의 연관(`uses`)이 상속 삼각형과 같은 점에 꽂혀 연관이
+  // 상속처럼 보였다. 교차축으로 조금씩 벌려 화살촉을 분리한다.
+  const b = dir === 'LR' ? { x: to.x, y: toC.y + entryOffset } :
+            dir === 'RL' ? { x: to.x + to.w, y: toC.y + entryOffset } :
+            dir === 'TD' ? { x: toC.x + entryOffset, y: to.y } :
+            /* BT */ { x: toC.x + entryOffset, y: to.y + to.h };
 
   if (aligned) {
     return [a, b];
@@ -136,7 +139,25 @@ function dedupPoints(points: Point[]): Point[] {
  * 직교 꺾은선. 랭크축으로 절반 나아가고, 교차축을 맞춘 뒤, 다시 랭크축으로 들어간다.
  * 역방향 간선은 상자를 우회한다.
  */
-export function routeEdge(from: Placed, to: Placed, dir: Dir): { path: Point[]; labelAt: Point } {
+/**
+ * 한 노드로 들어오는 간선이 여럿일 때 이 간선이 쓸 진입점 오프셋.
+ * `slot` 은 0부터, `count` 는 그 노드로 들어오는 간선 수다. 상자 밖으로
+ * 나가지 않도록 폭(또는 높이)의 절반에서 여유를 뺀 만큼으로 자른다.
+ */
+export function entryOffsetFor(to: Placed, dir: Dir, slot: number, count: number): number {
+  if (count <= 1) return 0;
+  const span = dir === 'LR' || dir === 'RL' ? to.h : to.w;
+  const limit = Math.max(0, span / 2 - 10);
+  const spacing = Math.min(20, (2 * limit) / (count - 1));
+  return (slot - (count - 1) / 2) * spacing;
+}
+
+export function routeEdge(
+  from: Placed,
+  to: Placed,
+  dir: Dir,
+  entryOffset = 0,
+): { path: Point[]; labelAt: Point } {
   const fromC = center(from);
   const toC = center(to);
   const horizontal = dir === 'LR' || dir === 'RL';
@@ -146,7 +167,7 @@ export function routeEdge(from: Placed, to: Placed, dir: Dir): { path: Point[]; 
   if (isBackEdge(from, to, dir)) {
     result = routeBackEdge(from, to, dir);
   } else {
-    const path = routeForward(from, to, dir, aligned);
+    const path = routeForward(from, to, dir, aligned && entryOffset === 0, entryOffset);
     result = { path, labelAt: { x: (fromC.x + toC.x) / 2, y: (fromC.y + toC.y) / 2 } };
   }
 
