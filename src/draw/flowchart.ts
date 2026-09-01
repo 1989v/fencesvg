@@ -39,10 +39,18 @@ export function arrowMarker(id: string, line: string): string {
  * `isEmphasis` 가 색·굵기·채움을 한 번에 가른다 — 강조는 다이어그램당
  * 최대 1개(파서가 이미 보장)라 여기선 그냥 받은 대로 쓴다.
  */
+function surfaceFor(shape: string, theme: Theme): string {
+  // 모양마다 면을 가른다. 전에는 전부 같은 면 하나였고, 바탕 대비가 8/255 라
+  // 어두운 화면에서 상자와 배경이 거의 안 갈렸다(2026-09-02 실측).
+  if (shape === 'diamond') return theme.nodeFillAlt;   // 판단 — 눈이 먼저 가야 한다
+  if (shape === 'round') return theme.nodeFillStrong;  // 흐름의 시작 — 강조색을 옅게
+  return theme.nodeFill;
+}
+
 function shapeOf(p: Placed, shape: string, theme: Theme, isEmphasis: boolean): string {
   const stroke = isEmphasis ? theme.accent : theme.nodeBorder;
   const strokeWidth = isEmphasis ? theme.accentStrokeWidth : 1;
-  const fill = isEmphasis ? theme.accentFill : theme.nodeFill;
+  const fill = isEmphasis ? theme.accentFill : surfaceFor(shape, theme);
   if (shape === 'diamond') {
     const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
     return el('polygon', {

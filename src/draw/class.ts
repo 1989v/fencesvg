@@ -5,7 +5,7 @@ import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, type Box } from './bbox';
-import { WEIGHT, MUTED_OPACITY, FAINT_OPACITY, metrics } from './theme';
+import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
 import { arrowMarker } from './flowchart';
 import { GAP, PAD_X, PAD_Y } from './label';
 
@@ -113,7 +113,7 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     if (c.members.length > 0) {
       body.push(el('rect', {
         x: p.x, y: p.y, width: p.w, height: m.headH, rx: theme.radius,
-        fill: theme.nodeFill,
+        fill: theme.nodeFillAlt,
       }));
     }
     body.push(el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: theme.radius, fill: 'none', stroke: theme.nodeBorder, 'stroke-width': 1 }));
@@ -122,7 +122,7 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
       fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
     if (c.members.length > 0) {
-      body.push(el('line', { x1: p.x, y1: p.y + m.headH, x2: p.x + p.w, y2: p.y + m.headH, stroke: theme.lineFaint, 'stroke-opacity': FAINT_OPACITY, 'stroke-width': 0.75 }));
+      body.push(el('line', { x1: p.x, y1: p.y + m.headH, x2: p.x + p.w, y2: p.y + m.headH, stroke: theme.lineFaint, 'stroke-width': 1 }));
       c.members.forEach((mem, i) => {
         body.push(text(mem, {
           x: p.x + m.memberInset, y: p.y + m.headH + m.memberBaseline + i * m.rowH,

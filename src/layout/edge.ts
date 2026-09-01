@@ -2,6 +2,11 @@ import type { Placed, Dir } from './graph';
 
 export type Point = { x: number; y: number };
 
+/** 이만큼 이하로 어긋난 간선은 도착 직전에서 꺾는다(모여드는 모양). */
+const FAN_DRIFT = 28;
+/** 도착 직전에서 꺾을 때 노드에서 떨어뜨릴 거리. */
+const FAN_LEAD = 16;
+
 /** 중심 계산 */
 function center(b: Placed): { x: number; y: number } {
   return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
@@ -50,11 +55,26 @@ function routeForward(from: Placed, to: Placed, dir: Dir, aligned: boolean, entr
     return [a, b];
   }
 
-  if (dir === 'LR' || dir === 'RL') {
-    return [a, { x: (a.x + b.x) / 2, y: a.y }, { x: (a.x + b.x) / 2, y: b.y }, b];
-  } else {
-    return [a, { x: a.x, y: (a.y + b.y) / 2 }, { x: b.x, y: (a.y + b.y) / 2 }, b];
+  // 꺾는 지점을 고른다.
+  //
+  // 늘 한가운데서 꺾으면 진입점을 몇 px 만 벌린 간선이 허공에서 살짝
+  // 지그재그하며 선이 휘어 보인다(진입점 분산을 넣은 뒤 실제로 그렇게 됐다).
+  // 어긋난 폭이 작으면 **도착 직전**에서 꺾는다 — 여러 간선이 노드 앞에서
+  // 모여드는 모양이라 의도한 것으로 읽힌다. 크게 어긋났을 때만 한가운데서
+  // 꺾는다(그 경우 도착 직전에 꺾으면 긴 가로줄이 다른 노드를 가로지른다).
+  const horizontal = dir === 'LR' || dir === 'RL';
+  const drift = horizontal ? Math.abs(a.y - b.y) : Math.abs(a.x - b.x);
+  const span = horizontal ? Math.abs(a.x - b.x) : Math.abs(a.y - b.y);
+  const nearTarget = drift <= FAN_DRIFT;
+  const knee = nearTarget
+    ? (horizontal ? b.x - Math.sign(b.x - a.x) * Math.min(FAN_LEAD, span / 2)
+                  : b.y - Math.sign(b.y - a.y) * Math.min(FAN_LEAD, span / 2))
+    : (horizontal ? (a.x + b.x) / 2 : (a.y + b.y) / 2);
+
+  if (horizontal) {
+    return [a, { x: knee, y: a.y }, { x: knee, y: b.y }, b];
   }
+  return [a, { x: a.x, y: knee }, { x: b.x, y: knee }, b];
 }
 
 /**

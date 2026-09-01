@@ -232,12 +232,44 @@ function luminance(c: string): number {
   return p ? 0.299 * p.r + 0.587 * p.g + 0.114 * p.b : 128; // 못 읽으면 손대지 않는다(중간값)
 }
 
-/** 테두리 색이 배경과 거의 구별 안 되면(사이트 자체가 저대비인 경우) 잉크 쪽으로
- * 끌어올려 최소한의 대비를 보장한다 — 옅어도 보이는 테두리가 안 보이는 것보다 낫다. */
-function ensureContrast(structure: string, ground: string, ink: string): string {
-  const MIN_LUMINANCE_DIFF = 24; // 0~255 스케일, 경험적 임계값
-  if (Math.abs(luminance(structure) - luminance(ground)) >= MIN_LUMINANCE_DIFF) return structure;
-  return mix(structure, ink, 0.6);
+/**
+ * 반투명한 색을 바탕에 얹은 뒤의 **불투명한** 색을 만든다.
+ *
+ * 이게 없으면 대비를 못 잰다. 사이트에서 읽어 온 테두리 색은 그 사이트가
+ * `color-mix(… 12%, transparent)` 로 만든 값일 때가 많은데, 알파를 무시하고
+ * 재면 "황토(밝기 147) vs 어두운 바탕(19) = 대비 128" 이라 통과한다. 실제로
+ * 화면에 보이는 것은 12% 만 얹힌 색이라 대비가 15 다(2026-09-02 실측).
+ */
+function flatten(color: string, ground: string): string {
+  const c = parseColor(color);
+  const g = parseColor(ground);
+  if (!c || !g) return color;
+  if (c.a >= 1) return fmt(c);
+  return fmt({
+    r: c.r * c.a + g.r * (1 - c.a),
+    g: c.g * c.a + g.g * (1 - c.a),
+    b: c.b * c.a + g.b * (1 - c.a),
+    a: 1,
+  });
+}
+
+const MIN_LUMINANCE_DIFF = 24; // 0~255 스케일, 경험적 임계값
+
+/**
+ * 바탕에 얹었을 때 실제로 보이는 대비를 보장한다.
+ *
+ * 먼저 알파를 걷어내(바탕에 합성해) 불투명한 색으로 만든다 — 여기서 대부분
+ * 해결된다. 그래도 바탕과 구별이 안 되면 잉크 쪽으로 민다. 반복해서 미는
+ * 이유는 한 번(0.6)으로는 저대비 사이트에서 여전히 모자랄 수 있어서다.
+ */
+function ensureContrast(color: string, ground: string, ink: string): string {
+  let c = flatten(color, ground);
+  const gl = luminance(ground);
+  for (let i = 0; i < 4; i++) {
+    if (Math.abs(luminance(c) - gl) >= MIN_LUMINANCE_DIFF) return c;
+    c = mix(c, ink, 0.45);
+  }
+  return c;
 }
 
 function sampleMuted(el: Element, ink: string, ground: string): string {
@@ -309,19 +341,31 @@ export function detectTheme(el: Element = document.body): Theme {
   }
 
   const structure = ensureContrast(sampleStructure(el, ink, ground), ground, ink);
-  const muted = sampleMuted(el, ink, ground);
+  // 생명선·구분선은 `line` 보다 옅어야 하지만 **보여야** 한다. 예전에는
+  // 같은 색에 stroke-opacity 0.16 을 곱했는데, 색 자체가 이미 알파 0.12 라
+  // 실효 0.019 가 되어 바탕 대비 2/255 로 사라졌다(2026-09-02 실측).
+  // 이제 바탕 쪽으로 섞은 **불투명한** 색을 따로 만들고 곱하지 않는다.
+  const faint = ensureContrast(mix(structure, ground, 0.45), ground, ink);
+  const muted = ensureContrast(sampleMuted(el, ink, ground), ground, ink);
   const radius = sampleRadius(el);
   const fontSize = sampleFontSize(el);
 
-  const nodeFill = mix(ground, ink, 0.04);
-  const accentFill = withAlpha(action, 0.1);
+  // 면을 한 단계씩 올린다. 예전에는 모든 도형이 같은 4% 면 하나를 써서
+  // 바탕 대비 8/255 로 단조로웠다(2026-09-02 실측). 세 단으로 갈라 판단·
+  // 참가자·이름 칸을 한 단 올리고, 흐름의 시작과 끝은 강조색을 옅게 섞는다.
+  const nodeFill = mix(ground, ink, 0.07);
+  const nodeFillAlt = mix(ground, ink, 0.14);
+  const nodeFillStrong = mix(ground, action, 0.16);
+  const accentFill = mix(ground, action, 0.12);
 
   const theme: Theme = {
     ink: `var(--fs-ink, ${ink})`,
     muted: `var(--fs-muted, ${muted})`,
     line: `var(--fs-line, ${structure})`,
-    lineFaint: `var(--fs-line-faint, ${structure})`,
+    lineFaint: `var(--fs-line-faint, ${faint})`,
     nodeFill: `var(--fs-node-fill, ${nodeFill})`,
+    nodeFillAlt: `var(--fs-node-fill-alt, ${nodeFillAlt})`,
+    nodeFillStrong: `var(--fs-node-fill-strong, ${nodeFillStrong})`,
     nodeBorder: `var(--fs-node-border, ${structure})`,
     accent: `var(--fs-accent, ${action})`,
     accentFill: `var(--fs-accent-fill, ${accentFill})`,

@@ -13,7 +13,9 @@ export type Theme = {
   muted: string;        // 보조행(멤버·부제) — MUTED_OPACITY 와 함께 쓴다
   line: string;         // 간선, 화살촉, 카디널리티 기호
   lineFaint: string;    // 생명선, 구분선 — FAINT_OPACITY 와 함께 쓴다
-  nodeFill: string;     // 노드 채움
+  nodeFill: string;     // 기본 면 (처리·상태·엔티티)
+  nodeFillAlt: string;  // 보조 면 (판단·참가자·이름 칸) — 기본 면보다 한 단 진하다
+  nodeFillStrong: string; // 시작·종료 면 — 강조색을 옅게 섞어 흐름의 양 끝을 잡는다     // 노드 채움
   nodeBorder: string;   // 노드 테두리
   accent: string;       // 강조 노드 테두리·라벨
   accentFill: string;   // 강조 노드 채움
@@ -64,6 +66,8 @@ export const EDITORIAL: Theme = {
   line: 'var(--fs-line, color-mix(in srgb, currentColor 30%, transparent))',
   lineFaint: 'var(--fs-line-faint, currentColor)',
   nodeFill: 'var(--fs-node-fill, color-mix(in srgb, currentColor 3.5%, transparent))',
+  nodeFillAlt: 'var(--fs-node-fill-alt, color-mix(in srgb, currentColor 8%, transparent))',
+  nodeFillStrong: 'var(--fs-node-fill-strong, color-mix(in srgb, currentColor 13%, transparent))',
   nodeBorder: 'var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))',
   accent: 'var(--fs-accent, currentColor)',
   accentFill: 'var(--fs-accent-fill, color-mix(in srgb, currentColor 9%, transparent))',
@@ -150,6 +154,6 @@ export function metrics(theme: Theme): Metrics {
     seqMinCol: fs * 8,
     loopH: padY,
     outerPad: Math.round(fs / 2),
-    gap: { rank: Math.round((fs * 14) / 3), node: fs * 2 },
+    gap: { rank: Math.round((fs * 14) / 3), node: Math.round(fs * 2.5) },
   };
 }

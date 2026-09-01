@@ -194,8 +194,14 @@ describe('디자인 패스 — 새 presentation 속성이 sanitize 를 통과한
     expect(classHtml).toMatch(/fill-opacity="[\d.]+"/);
   });
 
-  it('stroke-opacity 가 살아남는다(생명선)', () => {
-    expect(seqHtml).toMatch(/stroke-opacity="[\d.]+"/);
+  // 예전에는 "stroke-opacity 가 살아남는다" 를 재고 있었다. 생명선이 그 속성을
+  // 안 쓰게 된 지금 그 검사는 우리 출력이 아니라 DOMPurify 를 재는 것이 된다.
+  // 대신 생명선이 사라졌던 원인 자체를 막는다 — 이미 알파가 든 색에
+  // stroke-opacity 를 또 곱해 실효 0.019 가 됐었다(바탕 대비 2/255).
+  it('생명선은 점선으로 남고 불투명도를 곱하지 않는다', () => {
+    const lifeline = /<(?:line|path)[^>]*stroke-dasharray[^>]*>/.exec(seqHtml)?.[0] ?? '';
+    expect(lifeline, '점선 생명선이 없다').not.toBe('');
+    expect(lifeline, `생명선에 stroke-opacity 가 다시 붙었다: ${lifeline}`).not.toMatch(/stroke-opacity/);
   });
 
   it('font-weight 가 살아남는다(활자 위계)', () => {
