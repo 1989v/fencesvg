@@ -18,6 +18,17 @@ function viewBoxOf(svg: string): { minX: number; minY: number; w: number; h: num
   return { minX: Number(m[1]), minY: Number(m[2]), w: Number(m[3]), h: Number(m[4]) };
 }
 
+function pointsOf(svg: string): { x: number; y: number }[] {
+  const pts: { x: number; y: number }[] = [];
+  for (const m of svg.matchAll(/points="([^"]+)"/g)) {
+    for (const pair of m[1]!.split(' ')) {
+      const [x, y] = pair.split(',').map(Number);
+      pts.push({ x: x!, y: y! });
+    }
+  }
+  return pts;
+}
+
 function rectOf(svg: string, name: string): { x: number; y: number; w: number; h: number } {
   // <rect .../> 바로 다음 <text ...>name</text> 를 찾아 그 rect 를 반환한다
   const idx = svg.indexOf(`>${name}<`);
@@ -164,9 +175,18 @@ describe('drawClass — bbox 는 텍스트와 순환 관계를 포함한다', ()
     expect(vb.w).toBeGreaterThan(200);
   });
 
-  it('순환 의존 관계(뒤로 가는 간선)를 그려도 던지지 않는다', () => {
+  it('순환 의존 관계(뒤로 가는 간선)의 모든 점이 viewBox 안에 있다', () => {
     const svg = draw('classDiagram\n A --> B : x\n B --> A : y');
     expect(svg).toContain('<svg');
     expect(svg).not.toContain('NaN');
+    const vb = viewBoxOf(svg);
+    const pts = pointsOf(svg);
+    expect(pts.length).toBeGreaterThan(0);
+    for (const p of pts) {
+      expect(p.x).toBeGreaterThanOrEqual(vb.minX - 0.5);
+      expect(p.x).toBeLessThanOrEqual(vb.minX + vb.w + 0.5);
+      expect(p.y).toBeGreaterThanOrEqual(vb.minY - 0.5);
+      expect(p.y).toBeLessThanOrEqual(vb.minY + vb.h + 0.5);
+    }
   });
 });

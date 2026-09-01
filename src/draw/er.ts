@@ -4,6 +4,7 @@ import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { routeEdge, type Point } from '../layout/edge';
 import { el, text, svgRoot } from '../svg';
 import { measureText } from '../text';
+import { ContentBBox, textBBox } from './bbox';
 
 const H = 44;
 
@@ -73,38 +74,24 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     return [{ r, ...routeEdge(from, to, 'LR') }];
   });
 
-  // 가운데 정렬 라벨의 바운딩 박스 — drawFlowchart 와 같은 근사식.
-  const textBBox = (cx: number, baselineY: number, str: string, fontSize: number) => {
-    const halfW = measureText(str, fontSize) / 2;
-    return { minX: cx - halfW, maxX: cx + halfW, minY: baselineY - fontSize * 0.8, maxY: baselineY + fontSize * 0.25 };
-  };
-
   // 상자만으로 잰 layoutGraph 의 width/height 밖으로 나갈 수 있는 것들:
   // 뒤로 가는 간선의 우회 경로, 관계 라벨 텍스트, 그리고 상자 모서리 바로
   // 밖으로 퍼지는 까마귀발 기호. 전부 모아 콘텐츠 bbox 를 구한다.
-  let minX = 0, minY = 0, maxX = lay.width, maxY = lay.height;
-  const grow = (b: { minX: number; maxX: number; minY: number; maxY: number }) => {
-    minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
-    maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
-  };
+  const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const rt of routed) {
-    for (const pt of rt.path) {
-      minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y);
-      maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y);
-    }
-    if (rt.r.label) grow(textBBox(rt.labelAt.x, rt.labelAt.y - 6, rt.r.label, theme.labelSize));
+    for (const pt of rt.path) bbox.point(pt);
+    if (rt.r.label) bbox.box(textBBox(rt.labelAt.x, rt.labelAt.y - 6, rt.r.label, theme.labelSize));
     const from = rt.path[0]!, fromNext = rt.path[1]!;
     const to = rt.path[rt.path.length - 1]!, toPrev = rt.path[rt.path.length - 2]!;
-    for (const pt of crowExtent(from, fromNext, rt.r.fromCard)) { minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y); maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y); }
-    for (const pt of crowExtent(to, toPrev, rt.r.toCard)) { minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y); maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y); }
+    for (const pt of crowExtent(from, fromNext, rt.r.fromCard)) bbox.point(pt);
+    for (const pt of crowExtent(to, toPrev, rt.r.toCard)) bbox.point(pt);
   }
   for (const e of model.entities) {
     const p = at.get(e.id);
     if (!p) continue;
-    grow(textBBox(p.x + p.w / 2, p.y + p.h / 2 + theme.fontSize / 3, e.id, theme.fontSize));
+    bbox.box(textBBox(p.x + p.w / 2, p.y + p.h / 2 + theme.fontSize / 3, e.id, theme.fontSize));
   }
-  const dx = -minX, dy = -minY;
-  const shift = (p: Point): Point => ({ x: p.x + dx, y: p.y + dy });
+  const shift = bbox.shift;
 
   const body: string[] = [];
 
@@ -128,7 +115,7 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
   for (const e of model.entities) {
     const p0: Placed | undefined = at.get(e.id);
     if (!p0) continue;
-    const p: Placed = { ...p0, x: p0.x + dx, y: p0.y + dy };
+    const p: Placed = { ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy };
     body.push(el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 4, fill: 'none', stroke: theme.ink, 'stroke-width': 1.5 }));
     body.push(text(e.id, {
       x: p.x + p.w / 2, y: p.y + p.h / 2 + theme.fontSize / 3,
@@ -136,5 +123,5 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     }));
   }
 
-  return svgRoot({ width: maxX - minX, height: maxY - minY, label, body, pad: 6 });
+  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 6 });
 }

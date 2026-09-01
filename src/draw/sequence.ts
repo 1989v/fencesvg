@@ -4,20 +4,13 @@ import { layoutSequence } from '../layout/sequence';
 import { el, text, svgRoot } from '../svg';
 import { measureText } from '../text';
 import { arrowMarker } from './flowchart';
+import { ContentBBox, textBBox } from './bbox';
 
 // 자기 자신에게 보내는 메시지는 직선으로 그릴 수 없다(x1===x2 면 폭 0 짜리
 // 선이 되어 화살촉 방향도 안 정해진다) — 생명선 오른쪽으로 작은 사각 고리를
 // 내어 돌아오는 모양으로 그린다.
 const LOOP_W = 40;
 const LOOP_H = 16;
-
-type Box = { minX: number; maxX: number; minY: number; maxY: number };
-
-/** 가운데 정렬(text-anchor=middle) 라벨 하나의 바운딩 박스 */
-function textBBox(cx: number, baselineY: number, str: string, fontSize: number): Box {
-  const halfW = measureText(str, fontSize) / 2;
-  return { minX: cx - halfW, maxX: cx + halfW, minY: baselineY - fontSize * 0.8, maxY: baselineY + fontSize * 0.25 };
-}
 
 export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, label: string): string {
   const lay = layoutSequence(model, theme);
@@ -27,45 +20,40 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
   // 상자/라벨 + 참가자 상자/이름)을 모아 콘텐츠 bbox 를 구한다 —
   // layoutSequence 의 width/height 는 열 너비만 잰 값이라, 자기 루프의
   // 오른쪽 여백이나 열보다 넓은 라벨·노트가 그 밖으로 나가면 그대로 잘린다.
-  let minX = 0, minY = 0, maxX = lay.width, maxY = lay.height;
-  const grow = (b: Box) => {
-    minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
-    maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
-  };
+  const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
 
   for (const a of model.actors) {
     const cx = lay.x.get(a)!;
-    grow({ minX: cx, maxX: cx, minY: lay.headH, maxY: lay.height - 8 });
+    bbox.box({ minX: cx, maxX: cx, minY: lay.headH, maxY: lay.height - 8 });
   }
   model.steps.forEach((s, i) => {
     const y = lay.rowY[i]!;
     if (s.t === 'note') {
       const cx = lay.x.get(s.at)!;
       const w = measureText(s.label, theme.labelSize) + 20;
-      grow({ minX: cx - w / 2, maxX: cx + w / 2, minY: y - 14, maxY: y + 10 });
+      bbox.box({ minX: cx - w / 2, maxX: cx + w / 2, minY: y - 14, maxY: y + 10 });
       return;
     }
     if (s.from === s.to) {
       const cx = lay.x.get(s.from)!;
-      grow({ minX: cx, maxX: cx + LOOP_W, minY: y, maxY: y + LOOP_H });
-      grow(textBBox(cx + LOOP_W / 2, y - 6, s.label, theme.labelSize));
+      bbox.box({ minX: cx, maxX: cx + LOOP_W, minY: y, maxY: y + LOOP_H });
+      bbox.box(textBBox(cx + LOOP_W / 2, y - 6, s.label, theme.labelSize));
       return;
     }
     const x1 = lay.x.get(s.from)!, x2 = lay.x.get(s.to)!;
-    grow({ minX: Math.min(x1, x2), maxX: Math.max(x1, x2), minY: y, maxY: y });
-    grow(textBBox((x1 + x2) / 2, y - 6, s.label, theme.labelSize));
+    bbox.box({ minX: Math.min(x1, x2), maxX: Math.max(x1, x2), minY: y, maxY: y });
+    bbox.box(textBBox((x1 + x2) / 2, y - 6, s.label, theme.labelSize));
   });
   for (const a of model.actors) {
     const cx = lay.x.get(a)!;
     const w = measureText(a, theme.fontSize) + theme.pad * 2;
-    grow({ minX: cx - w / 2, maxX: cx + w / 2, minY: 0, maxY: lay.headH - 8 });
+    bbox.box({ minX: cx - w / 2, maxX: cx + w / 2, minY: 0, maxY: lay.headH - 8 });
   }
 
-  const dx = -minX, dy = -minY;
-  const sx = (n: number) => n + dx;
-  const sy = (n: number) => n + dy;
+  const sx = (n: number) => n + bbox.dx;
+  const sy = (n: number) => n + bbox.dy;
 
-  const body: string[] = [arrowMarker(arrowId)];
+  const body: string[] = [arrowMarker(arrowId, theme.ink)];
 
   // 생명선 먼저 — 메시지가 그 위에 얹히고, 참가자 상자가 맨 위를 덮는다
   for (const a of model.actors) {
@@ -124,5 +112,5 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
     }));
   }
 
-  return svgRoot({ width: maxX - minX, height: maxY - minY, label, body, pad: 6 });
+  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 6 });
 }

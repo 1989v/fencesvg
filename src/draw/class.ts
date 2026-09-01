@@ -1,9 +1,10 @@
 import type { ClassModel, ClassRel } from '../parse/class';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
-import { routeEdge, type Point } from '../layout/edge';
+import { routeEdge } from '../layout/edge';
 import { el, text, svgRoot } from '../svg';
 import { measureText } from '../text';
+import { ContentBBox, leftTextBBox } from './bbox';
 
 const ROW = 18;
 const HEAD = 28;
@@ -48,27 +49,14 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     return [{ r, ...routeEdge(from, to, 'BT') }];
   });
 
-  // 왼쪽 정렬(관계 라벨) 텍스트 하나의 바운딩 박스.
-  const leftTextBBox = (x: number, baselineY: number, str: string, fontSize: number) => ({
-    minX: x, maxX: x + measureText(str, fontSize), minY: baselineY - fontSize * 0.8, maxY: baselineY + fontSize * 0.25,
-  });
-
   // 상자만으로 잰 layoutGraph 의 width/height 밖으로 나갈 수 있는 것들 —
   // 뒤로 가는 간선의 우회 경로와 관계 라벨 텍스트를 콘텐츠 bbox 에 포함시킨다.
-  let minX = 0, minY = 0, maxX = lay.width, maxY = lay.height;
-  const grow = (b: { minX: number; maxX: number; minY: number; maxY: number }) => {
-    minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
-    maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
-  };
+  const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const rt of routed) {
-    for (const pt of rt.path) {
-      minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y);
-      maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y);
-    }
-    if (rt.r.label) grow(leftTextBBox(rt.labelAt.x + 6, rt.labelAt.y, rt.r.label, theme.labelSize));
+    for (const pt of rt.path) bbox.point(pt);
+    if (rt.r.label) bbox.box(leftTextBBox(rt.labelAt.x + 6, rt.labelAt.y, rt.r.label, theme.labelSize));
   }
-  const dx = -minX, dy = -minY;
-  const shift = (p: Point): Point => ({ x: p.x + dx, y: p.y + dy });
+  const shift = bbox.shift;
 
   const defs = new Map<string, string>();
   for (const r of model.rels) {
@@ -97,7 +85,7 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
   for (const c of model.classes) {
     const p0: Placed | undefined = at.get(c.id);
     if (!p0) continue;
-    const p: Placed = { ...p0, x: p0.x + dx, y: p0.y + dy };
+    const p: Placed = { ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy };
     body.push(el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 4, fill: 'none', stroke: theme.ink, 'stroke-width': 1.5 }));
     body.push(text(c.id, {
       x: p.x + p.w / 2, y: p.y + 19, 'text-anchor': 'middle',
@@ -114,5 +102,5 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     }
   }
 
-  return svgRoot({ width: maxX - minX, height: maxY - minY, label, body, pad: 6 });
+  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 6 });
 }
