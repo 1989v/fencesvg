@@ -31,6 +31,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --minify",
     "test": "vitest run",
-    "size": "node scripts/size.mjs"
+    "size": "node scripts/size.mjs",
+    "no-deps": "node scripts/no-deps.mjs"
   }
 }
