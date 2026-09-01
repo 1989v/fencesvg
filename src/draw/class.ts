@@ -5,7 +5,7 @@ import { routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, type Box } from './bbox';
-import { WEIGHT } from './theme';
+import { WEIGHT, MUTED_OPACITY, FAINT_OPACITY } from './theme';
 import { arrowMarker } from './flowchart';
 import { GAP, PAD_X, PAD_Y } from './label';
 
@@ -26,8 +26,8 @@ function relationLabelChip(labelStr: string, lineX: number, y: number, theme: Th
   const top = y - theme.labelSize * 0.8 - PAD_Y, bottom = y + theme.labelSize * 0.25 + PAD_Y;
   const box: Box = { minX, maxX, minY: top, maxY: bottom };
   const body = [
-    el('rect', { x: minX, y: top, width: maxX - minX, height: bottom - top, rx: 3, fill: 'currentColor', 'fill-opacity': 0.06 }),
-    text(labelStr, { x, y, fill: 'currentColor', 'fill-opacity': theme.muted, 'font-size': theme.labelSize, 'font-weight': WEIGHT.edgeLabel }),
+    el('rect', { x: minX, y: top, width: maxX - minX, height: bottom - top, rx: 3, fill: theme.labelChip }),
+    text(labelStr, { x, y, fill: theme.label, 'font-size': theme.labelSize, 'font-weight': WEIGHT.edgeLabel }),
   ];
   return { body, box };
 }
@@ -35,17 +35,19 @@ function relationLabelChip(labelStr: string, lineX: number, y: number, theme: Th
 function markerFor(rel: ClassRel, idPrefix: string, theme: Theme): { id: string; def: string } {
   if (rel === 'inherit' || rel === 'implement') {
     const id = `${idPrefix}-tri`;
-    // 상속·구현의 삼각형은 채우지 않은 흰 삼각형이어야 UML 관례에 맞다 — fill=none 유지.
+    // 상속·구현의 삼각형은 속이 빈 UML 삼각형이다 — `nodeFill` 을 그대로 써서,
+    // 사이트가 노드 채움을 지정하면 겹치는 선이 삼각형 안으로 비치지 않는다
+    // (fallback 은 transparent 라 CSS 가 없으면 지금처럼 빈 삼각형으로 보인다).
     return {
       id,
       def: el('defs', {}, [
         el('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 9, markerHeight: 9, orient: 'auto' },
-          [el('polygon', { points: '0,0 10,5 0,10', fill: 'none', stroke: theme.ink, 'stroke-opacity': theme.muted, 'stroke-width': 1.5 })]),
+          [el('polygon', { points: '0,0 10,5 0,10', fill: theme.nodeFill, stroke: theme.line, 'stroke-width': 1.5 })]),
       ]),
     };
   }
   // 연관·의존 화살촉은 flowchart 와 같은 모양 — 따로 정의를 복제하지 않는다.
-  return { id: `${idPrefix}-arrow`, def: arrowMarker(`${idPrefix}-arrow`, theme.ink, theme.muted) };
+  return { id: `${idPrefix}-arrow`, def: arrowMarker(`${idPrefix}-arrow`, theme.line) };
 }
 
 export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, label: string): string {
@@ -89,7 +91,7 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     const m = markerFor(rt.r.rel, idPrefix, theme);
     body.push(el('path', {
       d: pathData(path),
-      fill: 'none', stroke: theme.ink, 'stroke-opacity': theme.muted, 'stroke-width': 1,
+      fill: 'none', stroke: theme.line, 'stroke-width': 1,
       'stroke-dasharray': (rt.r.rel === 'implement' || rt.r.rel === 'depend') ? '3 3' : undefined,
       'marker-end': `url(#${m.id})`,
     }));
@@ -102,24 +104,24 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     const p0: Placed | undefined = at.get(c.id);
     if (!p0) continue;
     const p: Placed = snapBox({ ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy });
-    // 이름 칸엔 옅은 채움을, 멤버 칸은 투명하게 둔다 — 칸이 나뉜 게 보인다.
+    // 이름 칸엔 노드 채움을, 멤버 칸은 투명하게 둔다 — 칸이 나뉜 게 보인다.
     if (c.members.length > 0) {
       body.push(el('rect', {
-        x: p.x, y: p.y, width: p.w, height: HEAD, rx: 6,
-        fill: theme.ink, 'fill-opacity': theme.surface,
+        x: p.x, y: p.y, width: p.w, height: HEAD, rx: theme.radius,
+        fill: theme.nodeFill,
       }));
     }
-    body.push(el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 6, fill: 'none', stroke: theme.ink, 'stroke-width': 1 }));
+    body.push(el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: theme.radius, fill: 'none', stroke: theme.nodeBorder, 'stroke-width': 1 }));
     body.push(text(c.id, {
       x: p.x + p.w / 2, y: p.y + 19, 'text-anchor': 'middle',
       fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
     if (c.members.length > 0) {
-      body.push(el('line', { x1: p.x, y1: p.y + HEAD, x2: p.x + p.w, y2: p.y + HEAD, stroke: theme.ink, 'stroke-opacity': theme.faint, 'stroke-width': 0.75 }));
+      body.push(el('line', { x1: p.x, y1: p.y + HEAD, x2: p.x + p.w, y2: p.y + HEAD, stroke: theme.lineFaint, 'stroke-opacity': FAINT_OPACITY, 'stroke-width': 0.75 }));
       c.members.forEach((mem, i) => {
         body.push(text(mem, {
           x: p.x + 8, y: p.y + HEAD + 14 + i * ROW,
-          fill: theme.ink, 'fill-opacity': theme.muted, 'font-size': MEMBER_SIZE, 'font-weight': WEIGHT.member,
+          fill: theme.muted, 'fill-opacity': MUTED_OPACITY, 'font-size': MEMBER_SIZE, 'font-weight': WEIGHT.member,
         }));
       });
     }

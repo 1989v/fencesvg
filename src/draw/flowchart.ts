@@ -15,14 +15,15 @@ const H = 44;
  * `<marker>` 안의 색은 marker-end 로 참조하는 간선이 아니라 marker 자기
  * 자신의 조상(사실상 이 defs 블록)을 기준으로 풀린다 — 참조하는 요소의
  * 색을 물려받으려면 SVG 의 `context-stroke` 가 따로 있어야 한다. 그래서
- * `ink` 를 호출자가 명시로 넘긴다: 간선 색과 다른 값을 쓰면(예: 간선에
- * `theme.accent`) 화살촉은 안 따라가고 여기서 받은 색으로 남는다.
+ * `line` 을 호출자가 명시로 넘긴다: 간선과 다른 값을 쓰면(예: `theme.accent`)
+ * 화살촉은 안 따라가고 여기서 받은 값으로 남는다. `line` 은 이미
+ * `var(--fs-line, currentColor)` 문자열이라 여기서 CSS 를 더 알 필요가 없다.
  */
-export function arrowMarker(id: string, ink: string, opacity: number): string {
+export function arrowMarker(id: string, line: string): string {
   return el('defs', {}, [
     el('marker',
       { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' },
-      [el('polygon', { points: '0,0 10,5 0,10', fill: ink, 'fill-opacity': opacity })]),
+      [el('polygon', { points: '0,0 10,5 0,10', fill: line })]),
   ]);
 }
 
@@ -31,21 +32,20 @@ export function arrowMarker(id: string, ink: string, opacity: number): string {
  * 최대 1개(파서가 이미 보장)라 여기선 그냥 받은 대로 쓴다.
  */
 function shapeOf(p: Placed, shape: string, theme: Theme, isEmphasis: boolean): string {
-  const stroke = isEmphasis ? theme.accent : theme.ink;
+  const stroke = isEmphasis ? theme.accent : theme.nodeBorder;
   const strokeWidth = isEmphasis ? 1.25 : 1;
-  const fill = isEmphasis ? theme.accent : theme.ink;
-  const fillOpacity = isEmphasis ? theme.accentTint : theme.surface;
+  const fill = isEmphasis ? theme.accentFill : theme.nodeFill;
   if (shape === 'diamond') {
     const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
     return el('polygon', {
       points: `${cx},${p.y} ${p.x + p.w},${cy} ${cx},${p.y + p.h} ${p.x},${cy}`,
-      fill, 'fill-opacity': fillOpacity, stroke, 'stroke-width': strokeWidth,
+      fill, stroke, 'stroke-width': strokeWidth,
     });
   }
   return el('rect', {
     x: p.x, y: p.y, width: p.w, height: p.h,
-    rx: shape === 'round' ? p.h / 2 : 6,
-    fill, 'fill-opacity': fillOpacity, stroke, 'stroke-width': strokeWidth,
+    rx: shape === 'round' ? p.h / 2 : theme.radius,
+    fill, stroke, 'stroke-width': strokeWidth,
   });
 }
 
@@ -85,7 +85,7 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const r of routed) {
     for (const pt of r.path) bbox.point(pt);
-    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme.labelSize, theme.muted).box);
+    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme).box);
   }
   for (const n of model.nodes) {
     const p = at.get(n.id);
@@ -94,19 +94,19 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   }
   const shift = bbox.shift;
 
-  const body: string[] = [arrowMarker(arrowId, theme.ink, theme.muted)];
+  const body: string[] = [arrowMarker(arrowId, theme.line)];
 
   for (const r of routed) {
     const path = r.path.map(shift).map(snapPoint);
     const labelAt = shift(r.labelAt);
     body.push(el('path', {
       d: pathData(path),
-      fill: 'none', stroke: theme.ink, 'stroke-opacity': theme.muted, 'stroke-width': 1,
+      fill: 'none', stroke: theme.line, 'stroke-width': 1,
       'stroke-dasharray': r.e.line === 'dotted' ? '3 3' : undefined,
       'marker-end': `url(#${arrowId})`,
     }));
     if (r.e.label) {
-      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme.labelSize, theme.muted).body);
+      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme).body);
     }
   }
 

@@ -158,23 +158,44 @@ describe.each(Object.entries(CASES))('%s 왕복', (_name, src) => {
   });
 });
 
-// 디자인 패스가 새로 낸 presentation 속성들 — sanitizer 가 낯선 속성을
-// 조용히 지워도 다른 왕복 테스트는 태그 개수만 세서 못 잡는다. 속성 자체가
-// 살아남는지 이름을 짚어 확인한다.
+// 디자인 패스가 새로 낸 presentation 속성들 — sanitizer 가 낯선 속성이나 값을
+// 조용히 지워도 다른 왕복 테스트는 태그 개수만 세서 못 잡는다. 속성 자체가,
+// 그리고 var(--…) 를 품은 속성값이 실제로 살아남는지 이름을 짚어 확인한다.
 describe('디자인 패스 — 새 presentation 속성이 sanitize 를 통과한다', () => {
   const flowHtml = publish(inlineDiagrams(
     '```mermaid\n%% caption: c\nflowchart LR\n  A[주문] -->|승인| B{결제}\n  class B emphasis\n```',
   ));
+  // class 는 fill-opacity(멤버행) 와 --fs-radius 의 단위 없는 숫자 둘 다를 낸다.
+  const classHtml = publish(inlineDiagrams(
+    '```mermaid\n%% caption: c\nclassDiagram\n  class Order {\n +Long id\n }\n  Order --> Payment\n```',
+  ));
+  // sequence 의 생명선이 stroke-opacity(faint) 를 낸다.
   const seqHtml = publish(inlineDiagrams(
     '```mermaid\n%% caption: c\nsequenceDiagram\n  A->>A: 재시도\n```',
   ));
 
-  it('fill-opacity 가 살아남는다(노드 채움·라벨 칩)', () => {
-    expect(flowHtml).toMatch(/fill-opacity="[\d.]+"/);
+  it('var(--fs-…, fallback) 커스텀 프로퍼티 값이 살아남는다', () => {
+    expect(flowHtml).toMatch(/="var\(--fs-[\w-]+, [^")]+\)"/);
   });
 
-  it('stroke-opacity 가 살아남는다(간선)', () => {
-    expect(flowHtml).toMatch(/stroke-opacity="[\d.]+"/);
+  it('강조 옵션이 --fs-accent 의 fallback 으로 살아남는다', () => {
+    const html = publish(inlineDiagrams(
+      '```mermaid\n%% caption: c\nflowchart LR\n  A[a] --> B[b]\n  class B emphasis\n```',
+      { accent: 'var(--ko-accent-primary)' },
+    ));
+    expect(html).toContain('var(--fs-accent, var(--ko-accent-primary))');
+  });
+
+  it('rx 의 --fs-radius 는 단위 없는 숫자로 살아남는다(px 가 붙으면 SVG 에서 안 풀린다)', () => {
+    expect(classHtml).toMatch(/rx="var\(--fs-radius, 6\)"/);
+  });
+
+  it('fill-opacity 가 살아남는다(클래스 멤버행)', () => {
+    expect(classHtml).toMatch(/fill-opacity="[\d.]+"/);
+  });
+
+  it('stroke-opacity 가 살아남는다(생명선)', () => {
+    expect(seqHtml).toMatch(/stroke-opacity="[\d.]+"/);
   });
 
   it('font-weight 가 살아남는다(활자 위계)', () => {
@@ -183,9 +204,5 @@ describe('디자인 패스 — 새 presentation 속성이 sanitize 를 통과한
 
   it('<path d="…"> 가 살아남는다(둥근 커넥터)', () => {
     expect(flowHtml).toMatch(/<path d="[^"]+"/);
-  });
-
-  it('opacity(생명선) 가 살아남는다', () => {
-    expect(seqHtml).toMatch(/opacity="0\.\d+"/);
   });
 });

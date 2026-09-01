@@ -19,12 +19,12 @@ describe('drawFlowchart', () => {
     expect((out.match(/<polygon/g) ?? []).length).toBeGreaterThanOrEqual(1); // 마름모 + 화살촉
   });
 
-  it('선 색을 currentColor 로 낸다', () => {
-    expect(out).toContain('stroke="currentColor"');
+  it('선 색은 CSS 커스텀 프로퍼티로 열고 currentColor 로 떨어진다', () => {
+    expect(out).toMatch(/stroke="var\(--fs-[\w-]+, currentColor\)"/);
   });
 
-  it('강조 노드만 accent 를 쓴다', () => {
-    expect((out.match(/var\(--accent\)/g) ?? []).length).toBeGreaterThan(0);
+  it('강조 노드만 --fs-accent 를 쓴다', () => {
+    expect((out.match(/var\(--fs-accent, /g) ?? []).length).toBeGreaterThan(0);
   });
 
   it('점선은 stroke-dasharray 로 낸다', () => {
@@ -213,16 +213,16 @@ describe('drawFlowchart — 경계 사례', () => {
     expect(out2).not.toContain('id="d1-arrow"');
   });
 
-  it('emphasis 노드 자신에 붙은 간선은 accent 를 타지 않고 currentColor 로 남는다', () => {
+  it('emphasis 노드 자신에 붙은 간선은 --fs-accent 를 타지 않고 --fs-line 으로 남는다', () => {
     const out = draw('flowchart LR\n A[a] --> B[b]\n class B emphasis');
     const edgeLines = out.split('\n').filter((l) => l.startsWith('<path'));
     expect(edgeLines.length).toBeGreaterThan(0);
     for (const l of edgeLines) {
-      expect(l).toContain('stroke="currentColor"');
-      expect(l).not.toContain('var(--accent)');
+      expect(l).toContain('stroke="var(--fs-line, currentColor)"');
+      expect(l).not.toContain('--fs-accent');
     }
-    // 노드 B 자체는 accent 를 쓴다
+    // 노드 B 자체는 --fs-accent 를 쓴다
     const rectLines = out.split('\n').filter((l) => l.startsWith('<rect'));
-    expect(rectLines.some((l) => l.includes('var(--accent)'))).toBe(true);
+    expect(rectLines.some((l) => l.includes('var(--fs-accent, '))).toBe(true);
   });
 });

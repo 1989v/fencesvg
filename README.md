@@ -115,14 +115,36 @@ fencesvg supports five diagram types. Each row shows what works, and what doesn'
 
 ## Styling
 
-Colors come out as `currentColor` and CSS variables like `--accent`, so your page's own CSS resolves them. There is no config file — the library is designed to follow the host site's theme.
+Every visual role — ink, lines, node fill/border, accent, labels — is a CSS custom
+property (`--fs-*`) with a fallback baked into the SVG attribute itself, e.g.
+`stroke="var(--fs-node-border, currentColor)"`. There is no config file: set none of
+them and diagrams render close to today's look off the fallbacks; set any of them in
+your own stylesheet and the diagram inherits your site's materials. CSS always wins
+over the fallback.
 
 ```css
-svg { color: #333; --accent: #0066cc; }
+svg {
+  --fs-ink: #1a1a1a;
+  --fs-line: #6b6b6b;
+  --fs-node-border: #1a1a1a;
+  --fs-node-fill: rgb(0 0 0 / 4%);
+  --fs-accent: #0066cc;
+  --fs-accent-fill: rgb(0 102 204 / 10%);
+  --fs-radius: 8; /* unitless number — SVG rx doesn't resolve px through var() */
+}
 @media (prefers-color-scheme: dark) {
-  svg { color: #eee; --accent: #0099ff; }
+  svg {
+    --fs-ink: #eee;
+    --fs-line: #9a9a9a;
+    --fs-node-border: #eee;
+    --fs-accent: #0099ff;
+  }
 }
 ```
+
+`accent` passed to `renderDiagram`/`inlineDiagrams` (or `defaultTheme(accent)`)
+becomes the fallback for `--fs-accent` — useful when you don't want a global
+stylesheet rule, but `--fs-accent` set in CSS still wins over it.
 
 ## Size
 

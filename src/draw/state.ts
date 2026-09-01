@@ -35,7 +35,7 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const r of routed) {
     for (const pt of r.path) bbox.point(pt);
-    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme.labelSize, theme.muted).box);
+    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme).box);
   }
   for (const n of model.nodes) {
     const p = at.get(n.id);
@@ -44,18 +44,18 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   }
   const shift = bbox.shift;
 
-  const body: string[] = [arrowMarker(arrowId, theme.ink, theme.muted)];
+  const body: string[] = [arrowMarker(arrowId, theme.line)];
 
   for (const r of routed) {
     const path = r.path.map(shift).map(snapPoint);
     const labelAt = shift(r.labelAt);
     body.push(el('path', {
       d: pathData(path),
-      fill: 'none', stroke: theme.ink, 'stroke-opacity': theme.muted, 'stroke-width': 1,
+      fill: 'none', stroke: theme.line, 'stroke-width': 1,
       'marker-end': `url(#${arrowId})`,
     }));
     if (r.e.label) {
-      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme.labelSize, theme.muted).body);
+      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme).body);
     }
   }
 
@@ -67,10 +67,10 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
       body.push(el('circle', { cx: p.x + p.w / 2, cy: p.y + p.h / 2, r: p.w / 2, fill: theme.ink }));
       continue;
     }
-    // rx=h/2 로 통일해 흐름도(rx=6 사각형)와 한눈에 구분한다.
+    // rx=h/2 로 통일해 흐름도(rx=var(--fs-radius) 사각형)와 한눈에 구분한다.
     body.push(el('rect', {
       x: p.x, y: p.y, width: p.w, height: p.h, rx: p.h / 2,
-      fill: theme.ink, 'fill-opacity': theme.surface, stroke: theme.ink, 'stroke-width': 1,
+      fill: theme.nodeFill, stroke: theme.nodeBorder, 'stroke-width': 1,
     }));
     body.push(text(n.label, {
       x: p.x + p.w / 2, y: p.y + p.h / 2 + theme.fontSize / 3,

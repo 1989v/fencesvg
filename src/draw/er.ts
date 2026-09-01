@@ -39,17 +39,17 @@ function crowPoints(at: Point, toward: Point, card: Card) {
   };
 }
 
-// 카디널리티 기호는 간선과 같은 역할(muted) — 엔티티 테두리(ink)보다 한 단 죽인다.
-function crow(at: Point, toward: Point, card: Card, ink: string, opacity: number): string[] {
+// 카디널리티 기호는 간선과 같은 역할(--fs-line) — 별도로 죽이지 않는다.
+function crow(at: Point, toward: Point, card: Card, line: string): string[] {
   const { barEnds, bar, feet, circle } = crowPoints(at, toward, card);
   const out: string[] = [];
   if (barEnds) {
-    out.push(el('line', { x1: barEnds[0].x, y1: barEnds[0].y, x2: barEnds[1].x, y2: barEnds[1].y, stroke: ink, 'stroke-opacity': opacity, 'stroke-width': 1 }));
+    out.push(el('line', { x1: barEnds[0].x, y1: barEnds[0].y, x2: barEnds[1].x, y2: barEnds[1].y, stroke: line, 'stroke-width': 1 }));
   }
   for (const tip of feet) {
-    out.push(el('line', { x1: bar.x, y1: bar.y, x2: tip.x, y2: tip.y, stroke: ink, 'stroke-opacity': opacity, 'stroke-width': 1 }));
+    out.push(el('line', { x1: bar.x, y1: bar.y, x2: tip.x, y2: tip.y, stroke: line, 'stroke-width': 1 }));
   }
-  if (circle) out.push(el('circle', { cx: circle.x, cy: circle.y, r: 3.5, fill: 'none', stroke: ink, 'stroke-opacity': opacity, 'stroke-width': 1 }));
+  if (circle) out.push(el('circle', { cx: circle.x, cy: circle.y, r: 3.5, fill: 'none', stroke: line, 'stroke-width': 1 }));
   return out;
 }
 
@@ -83,7 +83,7 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const rt of routed) {
     for (const pt of rt.path) bbox.point(pt);
-    if (rt.r.label) bbox.box(edgeLabel(rt.r.label, rt.labelAt.x, rt.labelAt.y, theme.labelSize, theme.muted).box);
+    if (rt.r.label) bbox.box(edgeLabel(rt.r.label, rt.labelAt.x, rt.labelAt.y, theme).box);
     const from = rt.path[0]!, fromNext = rt.path[1]!;
     const to = rt.path[rt.path.length - 1]!, toPrev = rt.path[rt.path.length - 2]!;
     for (const pt of crowExtent(from, fromNext, rt.r.fromCard)) bbox.point(pt);
@@ -103,12 +103,12 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     const labelAt = shift(rt.labelAt);
     body.push(el('path', {
       d: pathData(path),
-      fill: 'none', stroke: theme.ink, 'stroke-opacity': theme.muted, 'stroke-width': 1,
+      fill: 'none', stroke: theme.line, 'stroke-width': 1,
     }));
-    body.push(...crow(path[0]!, path[1]!, rt.r.fromCard, theme.ink, theme.muted));
-    body.push(...crow(path[path.length - 1]!, path[path.length - 2]!, rt.r.toCard, theme.ink, theme.muted));
+    body.push(...crow(path[0]!, path[1]!, rt.r.fromCard, theme.line));
+    body.push(...crow(path[path.length - 1]!, path[path.length - 2]!, rt.r.toCard, theme.line));
     if (rt.r.label) {
-      body.push(...edgeLabel(rt.r.label, labelAt.x, labelAt.y, theme.labelSize, theme.muted).body);
+      body.push(...edgeLabel(rt.r.label, labelAt.x, labelAt.y, theme).body);
     }
   }
 
@@ -117,8 +117,8 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
     if (!p0) continue;
     const p: Placed = snapBox({ ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy });
     body.push(el('rect', {
-      x: p.x, y: p.y, width: p.w, height: p.h, rx: 6,
-      fill: theme.ink, 'fill-opacity': theme.surface, stroke: theme.ink, 'stroke-width': 1,
+      x: p.x, y: p.y, width: p.w, height: p.h, rx: theme.radius,
+      fill: theme.nodeFill, stroke: theme.nodeBorder, 'stroke-width': 1,
     }));
     body.push(text(e.id, {
       x: p.x + p.w / 2, y: p.y + p.h / 2 + theme.fontSize / 3,
