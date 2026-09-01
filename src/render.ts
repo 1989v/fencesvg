@@ -9,6 +9,7 @@ import { drawClass } from './draw/class';
 import { parseSequence } from './parse/sequence';
 import { drawSequence } from './draw/sequence';
 import { defaultTheme } from './draw/theme';
+import { detectThemeSafely } from './auto';
 
 export type Options = {
   accent?: string;
@@ -48,7 +49,12 @@ export function renderDiagram(source: string, opts: Options = {}): Result {
   const caption = captionOf(source);
   if (!caption) warnings.push('캡션이 없다. `%% caption:` 한 줄을 넣으면 그림을 못 보는 사람도 읽는다');
 
-  const theme = defaultTheme(opts.accent);
+  // 명시로 accent 를 주면 그 값이 항상 이긴다 — 감지는 아예 시도하지 않는다.
+  // 안 주고 브라우저에서 돌면 페이지에서 읽은 팔레트로, 그마저 안 되면(Node,
+  // 또는 감지 실패) 기존 기본값(currentColor)으로 내려간다.
+  const theme = opts.accent !== undefined
+    ? defaultTheme(opts.accent)
+    : (detectThemeSafely() ?? defaultTheme());
   const idPrefix = opts.idPrefix ?? 'd1';
   const label = caption ?? '다이어그램';
   const head = source.split('\n').map((l) => l.trim()).find((l) => l.length > 0 && !l.startsWith('%%')) ?? '';
