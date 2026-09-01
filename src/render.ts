@@ -1,5 +1,7 @@
 import { parseFlowchart } from './parse/flowchart';
 import { drawFlowchart } from './draw/flowchart';
+import { parseState } from './parse/state';
+import { drawState } from './draw/state';
 import { defaultTheme } from './draw/theme';
 
 export type Options = {
@@ -50,6 +52,11 @@ export function renderDiagram(source: string, opts: Options = {}): Result {
       const model = parseFlowchart(stripLeadingComments(source));
       if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
       return { svg: drawFlowchart(model, theme, idPrefix, label), caption, warnings };
+    }
+    if (/^stateDiagram(-v2)?\b/.test(head)) {
+      const model = parseState(stripLeadingComments(source));
+      if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
+      return { svg: drawState(model, theme, idPrefix, label), caption, warnings };
     }
     // head 가 빈 문자열이면(소스가 `%%` 주석뿐이라 선언 줄이 아예 없는 경우)
     // split(' ')[0] 도 빈 문자열이라 `?? '(빈 내용)'` 은 안 걸린다(null/undefined
