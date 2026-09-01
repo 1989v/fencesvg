@@ -1,6 +1,6 @@
 /**
  * 발행 경로가 지우는 태그. 검사로 잡는 대신 **낼 수 없게** 한다 —
- * 검사는 통과시킬 수 있지만 여기서는 컴파일된 코드가 던진다.
+ * `el()` 과 `svgRoot()` 이 런타임에 던진다.
  */
 const FORBIDDEN = new Set(['style', 'script', 'use', 'foreignObject']);
 
@@ -36,8 +36,18 @@ export function text(content: string, a: Attrs): string {
 /** `pad` 는 viewBox 를 바깥으로 여는 여백이다 — 모든 좌표를 옮기는 것보다 싸다 */
 export function svgRoot(o: { width: number; height: number; label: string; body: string[]; pad?: number }): string {
   const p = o.pad ?? 0;
-  const open = `<svg viewBox="${-p} ${-p} ${Math.round(o.width + p * 2)} ${Math.round(o.height + p * 2)}" role="img" aria-label="${escapeXml(o.label)}" xmlns="http://www.w3.org/2000/svg">`;
-  // 빈 줄은 CommonMark 가 HTML 블록을 끊는 자리다. filter 로 원천 차단한다.
-  const lines = o.body.filter((l) => l.trim().length > 0);
+  // Flatten: split every body string on newlines to get real output lines
+  const allLines = o.body.flatMap((s) => s.split('\n'));
+  // Filter empty lines
+  const lines = allLines.filter((l) => l.trim().length > 0);
+  // Check for forbidden tags in any line
+  for (const line of lines) {
+    for (const tag of FORBIDDEN) {
+      if (new RegExp(`<${tag}(?:\\s|>|/)`, 'i').test(line)) {
+        throw new Error(`금지된 태그: ${tag}`);
+      }
+    }
+  }
+  const open = `<svg viewBox="${Math.round(-p * 100) / 100} ${Math.round(-p * 100) / 100} ${Math.round(o.width + p * 2)} ${Math.round(o.height + p * 2)}" role="img" aria-label="${escapeXml(o.label)}" xmlns="http://www.w3.org/2000/svg">`;
   return [open, ...lines, '</svg>'].join('\n');
 }
