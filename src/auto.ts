@@ -191,7 +191,17 @@ function sampleFontSize(el: Element): number {
 
 // ---- Theme 조립 -------------------------------------------------------------
 
-const cache = new WeakMap<Element, Theme>();
+/**
+ * `WeakMap` 은 "한 렌더 안에서 다이어그램 여러 개가 같은 엘리먼트를 감지하면
+ * 한 번만 샘플링한다"는 원래 목적만 위한 것이지, 엘리먼트 수명 내내 값을
+ * 얼려 두는 용도가 아니다. 실측 결과 그렇게 됐었다 — `data-theme` 을 토글해도
+ * 캐시가 첫 감지 값을 계속 돌려줘 밝은 모드 노드 채움이 어두운 배경 위에
+ * 그대로 남았다. 그래서 캐시 항목마다 ground/ink 표본도 같이 들고 있다가,
+ * 매 호출마다 그 두 값만 다시 읽어(`getComputedStyle` 두 번, 값싸다) 바뀌었으면
+ * 캐시를 버리고 통째로 다시 감지한다.
+ */
+type CacheEntry = { ground: string; ink: string; theme: Theme };
+const cache = new WeakMap<Element, CacheEntry>();
 
 /**
  * 살아 있는 페이지에서 팔레트를 읽어 `Theme` 을 만든다. 사이트마다 토큰 이름이
@@ -211,15 +221,16 @@ const cache = new WeakMap<Element, Theme>();
  * `EDITORIAL` 처럼 잉크와 같은 색일 때만 알파가 유일한 수단이다).
  */
 export function detectTheme(el: Element = document.body): Theme {
-  const cached = cache.get(el);
-  if (cached) return cached;
-
   const ground = sampleGround(el);
   const ink = sampleInk(el);
+
+  const cached = cache.get(el);
+  if (cached && cached.ground === ground && cached.ink === ink) return cached.theme;
+
   const action = sampleAction(el, ink);
 
   if (action === ink) {
-    cache.set(el, EDITORIAL);
+    cache.set(el, { ground, ink, theme: EDITORIAL });
     return EDITORIAL;
   }
 
@@ -250,8 +261,25 @@ export function detectTheme(el: Element = document.body): Theme {
     accentWeight: WEIGHT.label,
   };
 
-  cache.set(el, theme);
+  cache.set(el, { ground, ink, theme });
   return theme;
+}
+
+/**
+ * 감지된 팔레트를 짧은 문자열로 요약한다. 렌더된 SVG 는 그린 시점의 색을
+ * 문자 그대로 갖고 다니므로, 테마가 토글돼도 라이브러리가 알아서 다시
+ * 그려주지는 못한다 — 대신 소비 쪽이 이 값을 `useMemo`/`useEffect` 의존성
+ * 배열에 넣어 두면 팔레트가 바뀔 때마다 재렌더를 스스로 트리거할 수 있다.
+ * ground/ink/action 세 표본만으로 만든다 — 이 셋이 바뀌면 나머지(구조·뮤트·
+ * 반경·글자 크기)도 전부 그 페이지가 달라졌다는 뜻이라 같이 다시 잰다
+ * (`detectTheme` 의 캐시 무효화 조건과 의도적으로 다르다 — 캐시는 ground/ink
+ * 만 봐도 되지만, 이 키는 강조 색 변화까지 소비 쪽에 알려야 한다).
+ */
+export function paletteKey(el: Element = document.body): string {
+  const ink = sampleInk(el);
+  const ground = sampleGround(el);
+  const action = sampleAction(el, ink);
+  return `${ground}|${ink}|${action}`;
 }
 
 /**

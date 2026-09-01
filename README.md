@@ -162,6 +162,20 @@ svg {
 becomes the fallback for `--fs-accent` — useful when you don't want a global
 stylesheet rule, but `--fs-accent` set in CSS still wins over it.
 
+Detection re-samples on every call and replaces its cached result once the page's
+background or text colour actually changes, so calling `detectTheme` again after a
+`data-theme` toggle picks up the new palette. What it cannot do is redraw an SVG that
+has already been rendered — the markup carries the colours it was drawn with. Call
+`paletteKey(el?)` and put its return value in your framework's memo/effect dependency
+list; it changes exactly when the detected palette does, so a theme toggle re-renders
+the diagram:
+
+```javascript
+import { inlineDiagrams, paletteKey } from 'fencesvg';
+
+const key = paletteKey(); // re-run inlineDiagrams() whenever this changes
+```
+
 ## Size
 
 Gzipped bundle: **8.6 KB**  
