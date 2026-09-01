@@ -10,21 +10,56 @@ const DEFAULT_GAP = { rank: 56, node: 24 };
  * 랭크 = 진입 간선을 따라간 가장 긴 경로 길이.
  * 순환이 있으면 이미 방문한 노드를 건너뛰어 끝나게 한다 — 순환 그래프의
  * "옳은" 랭크는 정의되지 않지만, 안 끝나는 것보다 임의로 끊는 편이 낫다.
+ *
+ * 시작점은 **컴포넌트별로** 심는다. 전역에서 한 번만 심으면 진입 간선이
+ * 0 인 노드가 없는 컴포넌트(다른 컴포넌트와 안 이어진 순수 순환)는 아예
+ * 큐에 못 들어가 방문되지 않는다 — 그 컴포넌트는 조용히 전부 랭크 0 으로
+ * 남는다.
+ *
+ * BFS 가 끝난 뒤 실사용 랭크 값만 모아 0..k-1 로 다시 매긴다. 역행 간선은
+ * 랭크를 올릴 뿐 그 노드를 다시 큐에 넣지 않으므로 중간 값이 통째로
+ * 비는 경우가 있다 — 압축이 선두·중간·말단 어디의 빈 층이든 없앤다.
  */
 function rank(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number> {
   const succ = new Map<string, string[]>();
   const indeg = new Map<string, number>();
-  for (const n of nodes) { succ.set(n.id, []); indeg.set(n.id, 0); }
+  const adj = new Map<string, string[]>(); // 무향 — 약연결 컴포넌트 판정용
+  for (const n of nodes) { succ.set(n.id, []); indeg.set(n.id, 0); adj.set(n.id, []); }
   for (const e of edges) {
     if (!succ.has(e.from) || !succ.has(e.to)) continue;
     succ.get(e.from)!.push(e.to);
     indeg.set(e.to, indeg.get(e.to)! + 1);
+    adj.get(e.from)!.push(e.to);
+    adj.get(e.to)!.push(e.from);
   }
+
+  // 약연결 컴포넌트로 분할한다 — nodes 순회 순서를 그대로 따라가 결정적이다
+  const compOf = new Map<string, number>();
+  let compCount = 0;
+  for (const n of nodes) {
+    if (compOf.has(n.id)) continue;
+    const stack = [n.id];
+    compOf.set(n.id, compCount);
+    while (stack.length > 0) {
+      const id = stack.pop()!;
+      for (const nb of adj.get(id)!) {
+        if (!compOf.has(nb)) { compOf.set(nb, compCount); stack.push(nb); }
+      }
+    }
+    compCount++;
+  }
+
   const r = new Map<string, number>(nodes.map((n) => [n.id, 0]));
-  const queue = nodes.filter((n) => indeg.get(n.id) === 0).map((n) => n.id);
-  const seen = new Set<string>(queue);
-  // 진입 간선이 전부 있는 순환만 남으면 시작점이 없다 — 첫 노드를 시작점으로 삼는다
-  if (queue.length === 0 && nodes.length > 0) { queue.push(nodes[0]!.id); seen.add(nodes[0]!.id); }
+  const seen = new Set<string>();
+  const queue: string[] = [];
+  for (let c = 0; c < compCount; c++) {
+    const inComp = nodes.filter((n) => compOf.get(n.id) === c);
+    const starts = inComp.filter((n) => indeg.get(n.id) === 0);
+    // 진입 간선이 전부 있는 순환만 남으면 시작점이 없다 — 컴포넌트의 첫
+    // 노드(nodes 순서)를 시작점으로 삼는다
+    const seeds = starts.length > 0 ? starts : inComp.slice(0, 1);
+    for (const s of seeds) { seen.add(s.id); queue.push(s.id); }
+  }
   while (queue.length > 0) {
     const id = queue.shift()!;
     for (const to of succ.get(id)!) {
@@ -32,6 +67,11 @@ function rank(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number> {
       if (!seen.has(to)) { seen.add(to); queue.push(to); }
     }
   }
+
+  const used = Array.from(new Set(r.values())).sort((a, b) => a - b);
+  const remap = new Map(used.map((v, i) => [v, i]));
+  for (const [id, v] of r) r.set(id, remap.get(v)!);
+
   return r;
 }
 
