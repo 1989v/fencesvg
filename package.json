@@ -1,0 +1,26 @@
+{
+  "name": "fencesvg",
+  "version": "0.1.0",
+  "description": "Render mermaid-syntax fences as SVG that matches your site's design tokens and survives your markdown sanitizer.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "tsup": "^8.3.0"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --minify",
+    "test": "vitest run",
+    "size": "node scripts/size.mjs"
+  }
+}
