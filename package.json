@@ -1,7 +1,29 @@
 {
   "name": "fencesvg",
-  "version": "0.7.0",
-  "description": "Render mermaid-syntax fences as SVG that matches your site's design tokens and survives your markdown sanitizer.",
+  "version": "0.7.1",
+  "description": "Render mermaid-syntax fences as SVG that adopts your site's palette and survives your markdown sanitizer. Zero dependencies.",
+  "keywords": [
+    "mermaid",
+    "diagram",
+    "svg",
+    "markdown",
+    "flowchart",
+    "sequence-diagram",
+    "state-diagram",
+    "er-diagram",
+    "class-diagram",
+    "dompurify",
+    "ssr",
+    "zero-dependency"
+  ],
+  "homepage": "https://github.com/1989v/fencesvg#readme",
+  "bugs": {
+    "url": "https://github.com/1989v/fencesvg/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1989v/fencesvg.git"
+  },
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -17,8 +39,13 @@
   "files": [
     "dist"
   ],
-  "sideEffects": false,
-  "dependencies": {},
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --minify",
+    "test": "vitest run",
+    "size": "node scripts/size.mjs",
+    "no-deps": "node scripts/no-deps.mjs",
+    "prepare": "npm run build"
+  },
   "devDependencies": {
     "@types/jsdom": "^30.0.0",
     "dompurify": "^3.4.14",
@@ -28,11 +55,6 @@
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
-  "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --minify",
-    "test": "vitest run",
-    "size": "node scripts/size.mjs",
-    "no-deps": "node scripts/no-deps.mjs",
-    "prepare": "npm run build"
-  }
+  "dependencies": {},
+  "sideEffects": false
 }

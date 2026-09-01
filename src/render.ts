@@ -63,14 +63,19 @@ export function renderDiagram(source: string, opts: Options = {}): Result {
     if (/^flowchart\b/.test(head)) {
       const model = parseFlowchart(stripLeadingComments(source));
       if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
+      // 그린 **뒤에** 경고를 모은다 — 그룹 테두리를 포기했다 같은 사실은
+      // 배치가 끝나야 알 수 있어서 작도가 `model.warnings` 에 밀어 넣는다.
+      // 먼저 펼치면 그 경고가 조용히 사라진다(실제로 그랬다).
+      const svg = drawFlowchart(model, theme, idPrefix, label);
       warnings.push(...model.warnings);
-      return { svg: drawFlowchart(model, theme, idPrefix, label), caption, warnings };
+      return { svg, caption, warnings };
     }
     if (/^stateDiagram(-v2)?\b/.test(head)) {
       const model = parseState(stripLeadingComments(source));
       if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
+      const svg = drawState(model, theme, idPrefix, label);
       warnings.push(...model.warnings);
-      return { svg: drawState(model, theme, idPrefix, label), caption, warnings };
+      return { svg, caption, warnings };
     }
     if (/^erDiagram\b/.test(head)) {
       const model = parseEr(stripLeadingComments(source));

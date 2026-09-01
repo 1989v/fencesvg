@@ -5,6 +5,7 @@
 // 그 두 갈래를 둘 다 검사한다 — 한쪽만 보면 포기 경로가 죽은 코드가 된다.
 import { describe, it, expect } from 'vitest';
 import { parseFlowchart } from '../src/parse/flowchart';
+import { renderDiagram } from '../src/render';
 import { parseState } from '../src/parse/state';
 import { drawFlowchart } from '../src/draw/flowchart';
 import { drawState } from '../src/draw/state';
@@ -138,5 +139,32 @@ describe('자기 루프', () => {
     const vb = /viewBox="([-\d.]+) ([-\d.]+)/.exec(out)!.slice(1).map(Number) as number[];
     const ys = [...out.matchAll(/<path d="M [\d.]+ ([-\d.]+)/g)].map((x) => Number(x[1]));
     expect(Math.min(...ys)).toBeGreaterThanOrEqual(vb[1]! - 0.5);
+  });
+});
+
+describe('작도가 낸 경고가 renderDiagram 까지 온다', () => {
+  // 테두리를 포기했다는 사실은 배치가 끝나야 알 수 있어서 작도가
+  // `model.warnings` 에 밀어 넣는다. render 가 그리기 **전에** 경고를
+  // 펼치면 그 경고가 조용히 사라진다 — 실제로 그랬고, 화면에는 테두리가
+  // 없는데 아무도 이유를 알 수 없었다.
+  it('테두리를 포기하면 경고가 결과에 담긴다', () => {
+    const r = renderDiagram(`%% caption: x
+flowchart LR
+  A --> B
+  subgraph g[그룹]
+    B --> C
+    C --> D
+  end
+  C -.-> 남[남의 노드]
+  D --> E`);
+    expect(r.svg).not.toBeNull();
+    const dropped = r.warnings.filter((w) => w.includes('테두리'));
+    expect(dropped.length, `경고: ${r.warnings.join(' | ')}`).toBeGreaterThan(0);
+  });
+
+  it('테두리가 살아 있으면 그 경고는 없다', () => {
+    const r = renderDiagram('%% caption: x\nflowchart LR\n A --> B\n subgraph g[그룹]\n B --> C\n end\n C --> D');
+    expect(r.warnings.filter((w) => w.includes('테두리'))).toEqual([]);
+    expect(r.svg).toContain('그룹');
   });
 });
