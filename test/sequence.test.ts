@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseSequence } from '../src/parse/sequence';
 import { layoutSequence } from '../src/layout/sequence';
-import { defaultTheme } from '../src/draw/theme';
+import { defaultTheme, metrics } from '../src/draw/theme';
 import { renderDiagram } from '../src/render';
 import { measureText } from '../src/text';
 
@@ -128,4 +128,35 @@ describe('drawSequence — task 13 회귀 고정', () => {
     const span = lay.x.get('B')! - lay.x.get('A')!;
     expect(span).toBeGreaterThanOrEqual(measureText(label, theme.labelSize));
   });
+});
+
+describe('참가자 상자는 서로 맞닿지 않는다', () => {
+  // 2026-09-02 실측: 큰 글자를 감지한 사이트에서 참가자 상자 사이가 8px 까지
+  // 좁아졌다. 열 폭이 곧 상자 폭이라, 라벨이 열 폭을 안 밀어 올리는 열끼리는
+  // 테두리가 붙는다. 열 폭에 노드 간격을 실어 최소 간격을 보장한다.
+  const src = `sequenceDiagram
+  participant 클라이언트
+  participant 게이트웨이
+  participant 주문
+  클라이언트->>게이트웨이: 요청
+  게이트웨이->>주문: 저장`;
+  const m = parseSequence(src);
+  if ('error' in m) throw new Error(m.error);
+
+  for (const fs of [12, 16]) {
+    it(`글자 ${fs}px 에서 인접한 상자 간격이 노드 간격 이상이다`, () => {
+      const theme = { ...defaultTheme(), fontSize: fs, labelSize: fs - 3, pad: Math.round((fs * 7) / 6) };
+      const met = metrics(theme);
+      const lay = layoutSequence(m, theme);
+      const boxes = m.actors.map((a) => ({
+        a, cx: lay.x.get(a)!, w: measureText(a, theme.fontSize) + met.padX * 2,
+      }));
+      const gaps = boxes.slice(1).map((B, i) => {
+        const A = boxes[i]!;
+        return { pair: `${A.a}↔${B.a}`, gap: (B.cx - B.w / 2) - (A.cx + A.w / 2) };
+      });
+      const tight = gaps.filter((g) => g.gap < met.gap.node - 0.5);
+      expect(tight, `좁은 간격: ${tight.map((g) => `${g.pair} ${g.gap.toFixed(1)}px`).join(', ')}`).toEqual([]);
+    });
+  }
 });

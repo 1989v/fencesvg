@@ -1,6 +1,6 @@
 {
   "name": "fencesvg",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Render mermaid-syntax fences as SVG that matches your site's design tokens and survives your markdown sanitizer.",
   "license": "MIT",
   "type": "module",

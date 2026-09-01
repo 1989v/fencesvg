@@ -21,7 +21,13 @@ import { metrics } from '../draw/theme';
 export function layoutSequence(model: SeqModel, theme: Theme) {
   const m = metrics(theme);
   const HEAD_H = m.seqHeadH, ROW_H = m.seqRowH, TOP_GAP = m.seqTopGap, MIN_COL = m.seqMinCol;
-  const widest = new Map<string, number>(model.actors.map((a) => [a, measureText(a, theme.fontSize) + m.padX * 2]));
+  // 열 너비에 노드 간격을 더한다. 안 더하면 열 폭이 곧 상자 폭이라 이웃한
+  // 두 상자가 맞닿는다 — 실측에서 참가자 상자 사이가 8px 까지 좁아졌다.
+  // 열 폭에 간격을 실어 두면 두 중심 사이 거리가 (b1+b2)/2 + gap 이 되어
+  // 테두리 사이가 정확히 gap 만큼 벌어진다.
+  const widest = new Map<string, number>(
+    model.actors.map((a) => [a, measureText(a, theme.fontSize) + m.padX * 2 + m.gap.node]),
+  );
   for (const s of model.steps) {
     if (s.t === 'note') {
       const need = measureText(s.label, theme.labelSize) + m.padX + Math.round(theme.fontSize / 2);
