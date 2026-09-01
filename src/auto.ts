@@ -11,6 +11,7 @@ import { EDITORIAL, WEIGHT, type Theme } from './draw/theme';
 interface Element {
   readonly parentElement: Element | null;
   readonly tagName: string;
+  closest(selector: string): Element | null;
   querySelector(selector: string): Element | null;
   querySelectorAll(selector: string): ArrayLike<Element>;
 }
@@ -131,8 +132,10 @@ function chroma(c: Rgba): number {
  * (`rgb(26,71,42)` 폭 45)·황토(`rgb(179,139,109)` 폭 70)는 통과한다. */
 const MIN_CHROMA = 24;
 
-/** 액션 면일 가능성이 높은 태그를 먼저 본다. 같은 색이 여러 곳에 있으면
- * 어차피 결과가 같고, 다르면 버튼·링크 쪽이 브랜드색일 확률이 높다. */
+/** 바탕과 이만큼도 안 떨어지면 강조로 쓸 수 없다 — 안 보이는 강조는 강조가 아니다. */
+const MIN_ACCENT_LUMINANCE_DIFF = 24;
+
+/** 액션 면일 가능성이 높은 태그. 같은 횟수로 쓰인 색이 둘이면 이쪽을 고른다. */
 function actionWeight(tag: string): number {
   return tag === 'A' || tag === 'BUTTON' ? 1 : 0;
 }
@@ -142,35 +145,58 @@ function actionWeight(tag: string): number {
 const SCAN_LIMIT = 800;
 
 /**
+ * 표본에서 빼는 곳. `pre`/`code` 는 구문 강조가 색을 아주 많이 쓰는데 그건
+ * 본문 내용이지 사이트가 고른 색이 아니다. `svg` 는 앞서 그린 다이어그램이
+ * 자기 색을 다음 감지에 되먹이는 것을 막는다.
+ */
+const SAMPLE_EXCLUDE = 'pre, code, svg';
+
+type Candidate = { n: number; act: number; chroma: number };
+
+/**
  * 강조색을 찾는다.
  *
- * 처음에는 "첫 링크의 글자색" 하나만 봤는데, 실측에서 그게 무너졌다 — 이 사이트는
+ * 처음에는 "첫 링크의 글자색" 하나만 봤는데 실측에서 무너졌다 — 이 사이트는
  * 브랜드색을 본문 링크가 아니라 액션 면에 칠하고, 문서의 첫 링크(로고 워드마크)는
  * 잉크색 그대로였다. 링크 16개가 전부 무채색이라 감지가 통째로 실패했다.
  *
- * 그래서 자리를 특정하지 않고 **실제로 칠해진 색 중 가장 유채색인 것**을 고른다.
- * 이름(`--brand`)도 자리(`a`)도 사이트마다 다르지만, "회색이 아닌 색이 칠해져
- * 있다면 그게 그 사이트가 고른 색"이라는 것은 사이트를 안 가린다.
+ * 다음으로 "가장 유채색인 것" 을 골랐더니 이번에는 3px 짜리 장식 인장 점
+ * (`rgb(162,35,29)`, 폭 133) 이 페이지 전체를 지배하는 색(폭 70) 을 이겼다.
+ * 채도가 가장 높은 색은 보통 가장 눈에 띄는 한 점이지 그 사이트의 색이 아니다.
+ *
+ * 그래서 **가장 많이 쓰인 유채색**을 고른다. 실측에서 이 값이 호스트가 달라도
+ * 같은 색을 냈다 — 홈 72회, 블로그 12회로 둘 다 같은 색이 1위였다. 사이트가
+ * 반복해서 칠한 색이 그 사이트가 고른 색이라는 것은 사이트를 안 가린다.
  */
-function sampleAction(el: Element, ink: string): string {
+function sampleAction(el: Element, ink: string, ground: string): string {
   const all = el.querySelectorAll('*');
   const limit = Math.min(all.length, SCAN_LIMIT);
-  let best: string | null = null;
-  let bestScore = -1;
+  const groundLuma = luminance(ground);
+  const seen = new Map<string, Candidate>();
 
   for (let i = 0; i < limit; i++) {
     const cand = all[i]!;
+    if (cand.closest(SAMPLE_EXCLUDE)) continue;
     const cs = getComputedStyle(cand);
-    const w = actionWeight(cand.tagName);
+    const act = actionWeight(cand.tagName);
     for (const raw of [cs.color, cs.borderTopColor, cs.backgroundColor]) {
       const c = parseColor(raw);
       if (!c || c.a < 0.5) continue;
       const ch = chroma(c);
       if (ch < MIN_CHROMA) continue;
-      const score = ch + w;
-      if (score > bestScore) { bestScore = score; best = raw; }
+      if (Math.abs(luminance(raw) - groundLuma) < MIN_ACCENT_LUMINANCE_DIFF) continue;
+      const hit = seen.get(raw);
+      if (hit) { hit.n++; hit.act += act; } else seen.set(raw, { n: 1, act, chroma: ch });
     }
   }
+
+  let best: string | null = null;
+  let bn = -1, ba = -1, bc = -1;
+  seen.forEach((d, v) => {
+    if (d.n > bn || (d.n === bn && (d.act > ba || (d.act === ba && d.chroma > bc)))) {
+      best = v; bn = d.n; ba = d.act; bc = d.chroma;
+    }
+  });
 
   return best ?? ink;
 }
@@ -275,7 +301,7 @@ export function detectTheme(el: Element = document.body): Theme {
   const cached = cache.get(el);
   if (cached && cached.ground === ground && cached.ink === ink) return cached.theme;
 
-  const action = sampleAction(el, ink);
+  const action = sampleAction(el, ink, ground);
 
   if (action === ink) {
     cache.set(el, { ground, ink, theme: EDITORIAL });
@@ -326,7 +352,7 @@ export function detectTheme(el: Element = document.body): Theme {
 export function paletteKey(el: Element = document.body): string {
   const ink = sampleInk(el);
   const ground = sampleGround(el);
-  const action = sampleAction(el, ink);
+  const action = sampleAction(el, ink, ground);
   return `${ground}|${ink}|${action}`;
 }
 
