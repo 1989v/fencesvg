@@ -5,13 +5,10 @@ import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, type Box } from './bbox';
-import { WEIGHT, MUTED_OPACITY, FAINT_OPACITY } from './theme';
+import { WEIGHT, MUTED_OPACITY, FAINT_OPACITY, metrics } from './theme';
 import { arrowMarker } from './flowchart';
 import { GAP, PAD_X, PAD_Y } from './label';
 
-const ROW = 18;
-const HEAD = 28;
-const MEMBER_SIZE = 10; // 노드 보조행(클래스 멤버) — theme.labelSize(간선 라벨)와 역할이 다르다
 
 /**
  * class 의 관계 라벨은 세로선 옆에 붙는 왼쪽 정렬 칩이다 — flowchart 등의
@@ -51,16 +48,17 @@ function markerFor(rel: ClassRel, idPrefix: string, theme: Theme): { id: string;
 }
 
 export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, label: string): string {
+  const m = metrics(theme);
   const nodes: GraphNode[] = model.classes.map((c) => {
     const widest = Math.max(
       measureText(c.id, theme.fontSize),
-      ...c.members.map((m) => measureText(m, MEMBER_SIZE)),
+      ...c.members.map((mem) => measureText(mem, m.memberSize)),
     );
-    return { id: c.id, w: Math.max(110, widest + theme.pad * 2), h: HEAD + c.members.length * ROW + 8 };
+    return { id: c.id, w: Math.max(Math.round(m.minW * 1.53), widest + m.padX * 2), h: m.headH + c.members.length * m.rowH + Math.round(theme.fontSize / 1.5) };
   });
   // 간선을 뒤집어 TD 로 돌린다 — 화살표 **머리**(상속의 부모)가 위에 온다.
   // 그래서 모든 화살표가 아래에서 위로 향하고, 라우팅 방향이 'BT' 하나로 통일된다.
-  const lay = layoutGraph(nodes, model.rels.map((r) => ({ from: r.to, to: r.from })), 'TD');
+  const lay = layoutGraph(nodes, model.rels.map((r) => ({ from: r.to, to: r.from })), 'TD', m.gap);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
   const inboundCount = new Map<string, number>();
@@ -114,25 +112,25 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     // 이름 칸엔 노드 채움을, 멤버 칸은 투명하게 둔다 — 칸이 나뉜 게 보인다.
     if (c.members.length > 0) {
       body.push(el('rect', {
-        x: p.x, y: p.y, width: p.w, height: HEAD, rx: theme.radius,
+        x: p.x, y: p.y, width: p.w, height: m.headH, rx: theme.radius,
         fill: theme.nodeFill,
       }));
     }
     body.push(el('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: theme.radius, fill: 'none', stroke: theme.nodeBorder, 'stroke-width': 1 }));
     body.push(text(c.id, {
-      x: p.x + p.w / 2, y: p.y + 19, 'text-anchor': 'middle',
+      x: p.x + p.w / 2, y: p.y + m.headH / 2 + theme.fontSize / 2.4, 'text-anchor': 'middle',
       fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
     if (c.members.length > 0) {
-      body.push(el('line', { x1: p.x, y1: p.y + HEAD, x2: p.x + p.w, y2: p.y + HEAD, stroke: theme.lineFaint, 'stroke-opacity': FAINT_OPACITY, 'stroke-width': 0.75 }));
+      body.push(el('line', { x1: p.x, y1: p.y + m.headH, x2: p.x + p.w, y2: p.y + m.headH, stroke: theme.lineFaint, 'stroke-opacity': FAINT_OPACITY, 'stroke-width': 0.75 }));
       c.members.forEach((mem, i) => {
         body.push(text(mem, {
-          x: p.x + 8, y: p.y + HEAD + 14 + i * ROW,
-          fill: theme.muted, 'fill-opacity': MUTED_OPACITY, 'font-size': MEMBER_SIZE, 'font-weight': WEIGHT.member,
+          x: p.x + m.memberInset, y: p.y + m.headH + m.memberBaseline + i * m.rowH,
+          fill: theme.muted, 'fill-opacity': MUTED_OPACITY, 'font-size': m.memberSize, 'font-weight': WEIGHT.member,
         }));
       });
     }
   }
 
-  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 6 });
+  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: m.outerPad });
 }

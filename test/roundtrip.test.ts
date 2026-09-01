@@ -206,3 +206,30 @@ describe('디자인 패스 — 새 presentation 속성이 sanitize 를 통과한
     expect(flowHtml).toMatch(/<path d="[^"]+"/);
   });
 });
+
+describe('축소 하한과 가로 스크롤이 발행 경로를 지난다', () => {
+  // `max-width: 100%` 만 있으면 좁은 화면에서 끝없이 줄어들어 글자가 같이
+  // 작아진다(실측: 1012px 상태도가 704px 열에서 0.70배, 글자 11.1px).
+  // min-width 는 CSS 우선순위에서 max-width 를 이기므로 고유 폭의 85% 를
+  // 걸어 두면 그 아래로는 안 줄고 바깥 상자가 스크롤한다. 이 두 속성과
+  // 래퍼가 sanitize 를 지나지 않으면 장치 전체가 조용히 무력해진다.
+  const html = publish(inlineDiagrams(SRC));
+
+  it('스크롤 래퍼가 남는다', () => {
+    expect(html).toMatch(/<div[^>]*overflow-x:\s*auto/);
+  });
+
+  it('svg 에 min-width · max-width · height:auto 가 남는다', () => {
+    const style = /<svg[^>]*style="([^"]*)"/.exec(html)?.[1] ?? '';
+    expect(style, `svg style: ${style}`).toMatch(/min-width:\d+px/);
+    expect(style).toContain('max-width:100%');
+    expect(style).toContain('height:auto');
+  });
+
+  it('하한은 고유 폭의 85% 다', () => {
+    const w = Number(/<svg[^>]*\swidth="(\d+)"/.exec(html)?.[1]);
+    const floor = Number(/min-width:(\d+)px/.exec(html)?.[1]);
+    expect(w).toBeGreaterThan(0);
+    expect(floor).toBe(Math.round(w * 0.85));
+  });
+});

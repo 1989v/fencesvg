@@ -95,3 +95,61 @@ export function defaultTheme(accent = 'currentColor'): Theme {
     accentWeight: WEIGHT.label,
   };
 }
+
+/**
+ * 크기 상수를 글자 크기에서 뽑는다.
+ *
+ * 원래는 전부 리터럴이었다 — 상자 높이 44, 행 높이 18, 노드 간격 24 …
+ * `fontSize` 12 를 전제로 잡힌 값들인데 `detectTheme` 은 사이트 본문에서
+ * 글자 크기를 읽어 온다. 본문이 16.3px 인 사이트에서 글자만 16 으로 커지고
+ * 상자 높이는 44 에 머물러, 좌우 여백은 14px 인데 상하는 4px 인 눌린 모양이
+ * 됐다(2026-09-02 실측).
+ *
+ * 모든 공식은 `fontSize = 12` 에서 옛 리터럴과 **같은 값**을 낸다. 그래서
+ * 글자 크기를 감지하지 않는 경로(EDITORIAL)의 출력은 한 픽셀도 안 바뀌고,
+ * 큰 글자를 감지한 사이트에서만 비례해서 커진다.
+ */
+export type Metrics = {
+  padX: number;        // 상자 안 좌우 여백
+  padY: number;        // 상자 안 상하 여백
+  nodeH: number;       // 사각 노드 높이 (flowchart · er)
+  pillH: number;       // 알약 노드 높이 (state)
+  minW: number;        // 노드 최소 너비
+  headH: number;       // 클래스 이름 칸 높이
+  rowH: number;        // 클래스 멤버 행 높이
+  memberSize: number;  // 클래스 멤버 글자 크기
+  memberInset: number; // 멤버 행 왼쪽 들여쓰기
+  memberBaseline: number; // 이름 칸 아래에서 첫 멤버 기준선까지
+  seqHeadH: number;    // 순차도 참가자 상자 높이
+  seqRowH: number;     // 순차도 메시지 행 높이
+  seqTopGap: number;   // 참가자 상자와 첫 메시지 사이
+  seqMinCol: number;   // 순차도 열 최소 너비
+  loopH: number;       // 자기 루프 고리 높이
+  outerPad: number;    // viewBox 바깥 여백
+  gap: { rank: number; node: number };
+};
+
+export function metrics(theme: Theme): Metrics {
+  const fs = theme.fontSize;
+  const padY = Math.round((fs * 4) / 3);
+  const memberSize = fs - 2;
+  return {
+    padX: theme.pad,
+    padY,
+    nodeH: fs + padY * 2,
+    pillH: Math.round((fs * 10) / 3),
+    minW: fs * 6,
+    headH: fs + padY,
+    rowH: Math.round(memberSize * 1.8),
+    memberSize,
+    memberInset: Math.round((fs * 2) / 3),
+    memberBaseline: memberSize + Math.round(fs / 3),
+    seqHeadH: fs * 3,
+    seqRowH: Math.round((fs * 11) / 3),
+    seqTopGap: Math.round((fs * 5) / 3),
+    seqMinCol: fs * 8,
+    loopH: padY,
+    outerPad: Math.round(fs / 2),
+    gap: { rank: Math.round((fs * 14) / 3), node: fs * 2 },
+  };
+}

@@ -87,6 +87,9 @@ export function pathData(points: Pt[], radius = 6): string {
   return cmds.join(' ');
 }
 
+/** 축소 하한. 이보다 더 줄이지 않고 가로로 스크롤한다. */
+const MIN_SCALE = 0.85;
+
 /** `pad` 는 viewBox 를 바깥으로 여는 여백이다 — 모든 좌표를 옮기는 것보다 싸다 */
 export function svgRoot(o: { width: number; height: number; label: string; body: string[]; pad?: number }): string {
   const p = o.pad ?? 0;
@@ -109,6 +112,23 @@ export function svgRoot(o: { width: number; height: number; label: string; body:
   // 컨테이너 폭에 맞춰 **늘린다** — 좁은 그림일수록 심하게 부푼다(122×194 클래스 그림이
   // 704×1119 로 5.8배가 된 실측). 고유 크기가 있으면 `max-width:100%; height:auto` 가
   // 좁은 화면에서 줄이기만 하고 확대하지 않는다.
-  const open = `<svg width="${w}" height="${h}" viewBox="${origin} ${origin} ${w} ${h}" role="img" aria-label="${escapeXml(o.label)}" xmlns="http://www.w3.org/2000/svg">`;
-  return [open, ...lines, '</svg>'].join('\n');
+  // 축소 하한 + 가로 스크롤.
+  //
+  // `max-width: 100%` 만 걸면 좁은 화면에서 **끝없이** 줄어든다 — 실측에서
+  // 1012px 짜리 상태도가 704px 열에 들어가느라 0.70 배가 되고 글자가 화면에서
+  // 11.1px 이 됐다(본문 16.3px 의 68%). 같은 글에서 다이어그램마다 글자 크기가
+  // 11.1 / 14.8 / 16.0 으로 갈렸다.
+  //
+  // `min-width` 는 CSS 우선순위에서 `max-width` 를 이긴다. 그래서 고유 폭의
+  // 85% 를 min-width 로 걸어 두면 열이 그보다 넓을 때는 `max-width: 100%` 가
+  // 이겨 그대로/줄어들고, 열이 그보다 좁아지면 min-width 가 이겨 넘치며
+  // 바깥 상자가 스크롤한다. 결과적으로 배율이 0.85 아래로 안 내려가고
+  // 글자 크기가 페이지 안에서 일정하게 유지된다.
+  //
+  // 스타일은 인라인으로 낸다 — `<style>` 은 sanitizer 가 지우고, 소비 사이트에
+  // CSS 를 요구하면 「붙이면 그냥 되는」 성질이 깨진다. 인라인 `style` 속성과
+  // 래퍼 `div` 는 실제 발행 경로(marked + DOMPurify)를 통과하는 것을 확인했다.
+  const floor = Math.round(w * MIN_SCALE);
+  const open = `<div style="overflow-x:auto"><svg width="${w}" height="${h}" viewBox="${origin} ${origin} ${w} ${h}" role="img" aria-label="${escapeXml(o.label)}" style="min-width:${floor}px;max-width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">`;
+  return [open, ...lines, '</svg></div>'].join('\n');
 }

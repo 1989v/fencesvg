@@ -6,7 +6,7 @@ import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
-import { WEIGHT } from './theme';
+import { WEIGHT, metrics } from './theme';
 
 // 간선 라벨은 경로 중점이 아니라 시작 쪽 40% 지점에 둔다 — 같은 노드에서
 // 갈라지는 두 간선(예: "실패"/"거절")은 중점 근처에서도 여전히 겹칠 수
@@ -18,8 +18,6 @@ import { WEIGHT } from './theme';
 // 랭크 밴드 밖으로 우회시키는 라우팅 변경)은 이 태스크 범위 밖이라 후속으로 남긴다.
 const LABEL_T = 0.4;
 
-const MIN_W = 72;
-const H = 44;
 
 /**
  * `<marker>` 안의 색은 marker-end 로 참조하는 간선이 아니라 marker 자기
@@ -60,6 +58,7 @@ function shapeOf(p: Placed, shape: string, theme: Theme, isEmphasis: boolean): s
 }
 
 export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, label: string): string {
+  const m = metrics(theme);
   const nodes: GraphNode[] = model.nodes.map((n) => ({
     id: n.id,
     // 마름모는 같은 라벨에 더 넓은 자리가 필요하다 — 텍스트 밴드가 놓이는
@@ -72,8 +71,8 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
     // 텍스트가 마름모 윤곽 밖으로 살짝 나간다(실측: 60자에서 margin -2.6px).
     // 20자 안팎의 실사용 라벨은 여유 있게 들어간다 — 이 배율을 늘리는 건
     // 다음 태스크가 필요할 때 판단.
-    w: Math.max(MIN_W, measureText(n.label, theme.fontSize) + theme.pad * 2) * (n.shape === 'diamond' ? 1.4 : 1),
-    h: H,
+    w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2) * (n.shape === 'diamond' ? 1.4 : 1),
+    h: m.nodeH,
   }));
   const lay = layoutGraph(nodes, model.edges, model.dir);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
@@ -159,5 +158,5 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
 
   body.push(...labelBody);
 
-  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 4 });
+  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: Math.round(theme.fontSize / 3) });
 }

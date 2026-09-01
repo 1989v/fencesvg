@@ -7,20 +7,19 @@ import { measureText } from '../text';
 import { arrowMarker } from './flowchart';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
-import { WEIGHT } from './theme';
+import { WEIGHT, metrics } from './theme';
 
 const TERMINAL = 14;
-const MIN_W = 72;
-const H = 40;
 // 라벨을 경로 중점이 아니라 시작 쪽 40% 지점에 — 한 노드에서 갈라지는 간선끼리
 // 라벨이 안 겹치게. 값의 근거는 draw/flowchart.ts 의 LABEL_T 주석 참고.
 const LABEL_T = 0.4;
 
 export function drawState(model: FlowModel, theme: Theme, idPrefix: string, label: string): string {
+  const m = metrics(theme);
   const isTerminal = (id: string) => id.startsWith('__t');
   const nodes: GraphNode[] = model.nodes.map((n) => isTerminal(n.id)
     ? { id: n.id, w: TERMINAL, h: TERMINAL }
-    : { id: n.id, w: Math.max(MIN_W, measureText(n.label, theme.fontSize) + theme.pad * 2), h: H });
+    : { id: n.id, w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2), h: m.pillH });
 
   const lay = layoutGraph(nodes, model.edges, model.dir);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
@@ -101,5 +100,5 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
 
   body.push(...labelBody);
 
-  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: 4 });
+  return svgRoot({ width: bbox.width, height: bbox.height, label, body, pad: Math.round(theme.fontSize / 3) });
 }

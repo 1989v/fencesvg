@@ -1,11 +1,8 @@
 import type { SeqModel } from '../parse/sequence';
 import type { Theme } from '../draw/theme';
 import { measureText } from '../text';
+import { metrics } from '../draw/theme';
 
-const HEAD_H = 36;
-const ROW_H = 44;
-const TOP_GAP = 20;
-const MIN_COL = 96;
 
 /**
  * 그래프 배치가 없다. 참가자는 선언 순서대로 열, 단계는 순서대로 행이다.
@@ -22,14 +19,16 @@ const MIN_COL = 96;
  * 필요 215.4px 인데 실제 거리 203.7px). 나눗셈을 없애 그 부족을 없앴다.
  */
 export function layoutSequence(model: SeqModel, theme: Theme) {
-  const widest = new Map<string, number>(model.actors.map((a) => [a, measureText(a, theme.fontSize) + theme.pad * 2]));
+  const m = metrics(theme);
+  const HEAD_H = m.seqHeadH, ROW_H = m.seqRowH, TOP_GAP = m.seqTopGap, MIN_COL = m.seqMinCol;
+  const widest = new Map<string, number>(model.actors.map((a) => [a, measureText(a, theme.fontSize) + m.padX * 2]));
   for (const s of model.steps) {
     if (s.t === 'note') {
-      const need = measureText(s.label, theme.labelSize) + 20;
+      const need = measureText(s.label, theme.labelSize) + m.padX + Math.round(theme.fontSize / 2);
       widest.set(s.at, Math.max(widest.get(s.at) ?? MIN_COL, need));
       continue;
     }
-    const need = measureText(s.label, theme.labelSize) + 24;
+    const need = measureText(s.label, theme.labelSize) + theme.fontSize * 2;
     for (const a of [s.from, s.to]) widest.set(a, Math.max(widest.get(a) ?? MIN_COL, need));
   }
 
@@ -42,6 +41,6 @@ export function layoutSequence(model: SeqModel, theme: Theme) {
   }
 
   const rowY = model.steps.map((_, i) => HEAD_H + TOP_GAP + i * ROW_H);
-  const height = HEAD_H + TOP_GAP + model.steps.length * ROW_H + 12;
+  const height = HEAD_H + TOP_GAP + model.steps.length * ROW_H + theme.fontSize;
   return { x, rowY, width: cursor, height, headH: HEAD_H };
 }

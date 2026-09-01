@@ -330,7 +330,7 @@ export function detectTheme(el: Element = document.body): Theme {
     radius: `var(--fs-radius, ${radius})`,
     fontSize,
     labelSize: fontSize - 3,
-    pad: 14,
+    pad: Math.round((fontSize * 7) / 6),
     accentStrokeWidth: 1.25,
     accentWeight: WEIGHT.label,
   };
