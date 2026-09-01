@@ -82,7 +82,7 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
     w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2) * (n.shape === 'diamond' ? 1.4 : 1),
     h: m.nodeH,
   }));
-  const lay = layoutGraph(nodes, model.edges, model.dir);
+  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 

@@ -21,7 +21,7 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
     ? { id: n.id, w: TERMINAL, h: TERMINAL }
     : { id: n.id, w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2), h: m.pillH });
 
-  const lay = layoutGraph(nodes, model.edges, model.dir);
+  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 
