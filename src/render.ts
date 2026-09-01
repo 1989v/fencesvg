@@ -124,7 +124,10 @@ export function inlineDiagrams(markdown: string, opts: Options = {}): string {
       break;
     }
 
-    const isTarget = /^(mermaid|diagram)\b/.test(info);
+    // `\b` 는 하이픈에서도 걸린다(글자↔기호 경계) — `mermaid-extra` 같은,
+    // 일부러 그림으로 안 바뀌게 남겨두려는 태그까지 대상으로 잡아버린다.
+    // 언어 태그 뒤에 공백이나 줄 끝이 와야만 진짜 태그로 본다.
+    const isTarget = /^(mermaid|diagram)(\s|$)/.test(info);
     if (!isTarget) {
       out.push(...lines.slice(i, j + 1));            // 대상 아닌 펜스는 안쪽까지 통째로 리터럴
       i = j + 1;

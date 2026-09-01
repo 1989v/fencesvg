@@ -83,6 +83,24 @@ describe('inlineDiagrams', () => {
     expect(out2).toContain('<svg');
   });
 
+  it('언어 태그는 토큰 경계까지만 본다 — mermaid-extra 처럼 하이픈으로 이어붙은 태그는 대상이 아니다', () => {
+    // `\b` 는 글자↔하이픈 경계에서도 걸려서 `mermaid-extra`/`diagram-old` 를
+    // 대상으로 잘못 잡던 버그가 있었다 — 뒤에 공백/줄끝이 와야만 진짜 태그.
+    const cases: [string, boolean][] = [
+      ['mermaid', true],
+      ['mermaid title=x', true],
+      ['mermaid_x', false],
+      ['mermaid-extra', false],
+      ['diagram', true],
+      ['diagram-old', false],
+    ];
+    for (const [info, shouldConvert] of cases) {
+      const out2 = inlineDiagrams(`\`\`\`${info}\n%% caption: c\nflowchart LR\n A-->B\n\`\`\``);
+      expect(out2.includes('<svg'), `info="${info}"`).toBe(shouldConvert);
+      expect(out2.includes(`\`\`\`${info}`), `info="${info}"`).toBe(!shouldConvert);
+    }
+  });
+
   it('리스트 항목 안 들여쓴 펜스도 찾는다', () => {
     const out2 = inlineDiagrams('- item\n  ```mermaid\n  %% caption: c\n  flowchart LR\n   A-->B\n  ```\n');
     expect(out2).toContain('<svg');
