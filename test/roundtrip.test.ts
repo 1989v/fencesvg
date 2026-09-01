@@ -130,3 +130,28 @@ flowchart LR
     expect(html).toContain('<rect');
   });
 });
+
+// 다섯 타입 전부가 발행 경로(marked + DOMPurify)를 살아남는지 — 타입 하나가
+// 새 태그를 쓰기 시작해도 이 게이트가 잡는다. flowchart 하나만 걸어 둔 위
+// 스위트들은 도입 당시 나머지 네 타입이 아직 없어서였을 뿐이다.
+const CASES: Record<string, string> = {
+  flowchart: 'flowchart LR\n  A[주문] --> B{결제}',
+  sequence: 'sequenceDiagram\n  주문->>결제: 요청\n  결제-->>주문: 승인',
+  state: 'stateDiagram-v2\n  [*] --> PENDING\n  PENDING --> PAID: 승인',
+  er: 'erDiagram\n  ORDER ||--o{ ITEM : contains',
+  class: 'classDiagram\n  class Order {\n +Long id\n }\n  Order --> Payment',
+};
+
+describe.each(Object.entries(CASES))('%s 왕복', (_name, src) => {
+  const md = inlineDiagrams('앞.\n\n```mermaid\n%% caption: 설명\n' + src + '\n```\n\n뒤.');
+  const html = publish(md);
+
+  it('도형이 하나도 안 사라진다', () => {
+    const count = (s: string) => (s.match(/<(rect|polygon|polyline|line|circle|text|marker)\b/g) ?? []).length;
+    expect(count(html)).toBe(count(md));
+  });
+
+  it('캡션이 남는다', () => {
+    expect(html).toContain('<p>그림: 설명</p>');
+  });
+});
