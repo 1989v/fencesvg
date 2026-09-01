@@ -10,6 +10,7 @@ import { EDITORIAL, WEIGHT, type Theme } from './draw/theme';
  */
 interface Element {
   readonly parentElement: Element | null;
+  readonly tagName: string;
   querySelector(selector: string): Element | null;
   querySelectorAll(selector: string): ArrayLike<Element>;
 }
@@ -120,11 +121,58 @@ function sampleInk(el: Element): string {
   return getComputedStyle(el).color;
 }
 
-/** 거의 모든 사이트가 브랜드색을 링크에 칠한다 — 이름을 모르는 변수를 찾는 대신
- * 실제로 그 색이 쓰인 자리를 찾는다. */
+/** 색상 폭 — 최대 채널과 최소 채널의 차. 회색 계열은 0 에 가깝다. */
+function chroma(c: Rgba): number {
+  return Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b);
+}
+
+/** 이 값 미만이면 무채색으로 본다. 24는 실측에서 나왔다 — 잉크로 쓰는 따뜻한
+ * 회색(`rgb(199,198,202)` 폭 4)은 걸러지고, 가장 절제된 브랜드색인 소나무
+ * (`rgb(26,71,42)` 폭 45)·황토(`rgb(179,139,109)` 폭 70)는 통과한다. */
+const MIN_CHROMA = 24;
+
+/** 액션 면일 가능성이 높은 태그를 먼저 본다. 같은 색이 여러 곳에 있으면
+ * 어차피 결과가 같고, 다르면 버튼·링크 쪽이 브랜드색일 확률이 높다. */
+function actionWeight(tag: string): number {
+  return tag === 'A' || tag === 'BUTTON' ? 1 : 0;
+}
+
+/** 훑을 엘리먼트 상한. 페이지가 커도 감지 비용이 선형으로 늘지 않게 자른다 —
+ * 브랜드색은 문서 앞쪽(헤더·내비·주요 액션)에 거의 항상 한 번은 나온다. */
+const SCAN_LIMIT = 800;
+
+/**
+ * 강조색을 찾는다.
+ *
+ * 처음에는 "첫 링크의 글자색" 하나만 봤는데, 실측에서 그게 무너졌다 — 이 사이트는
+ * 브랜드색을 본문 링크가 아니라 액션 면에 칠하고, 문서의 첫 링크(로고 워드마크)는
+ * 잉크색 그대로였다. 링크 16개가 전부 무채색이라 감지가 통째로 실패했다.
+ *
+ * 그래서 자리를 특정하지 않고 **실제로 칠해진 색 중 가장 유채색인 것**을 고른다.
+ * 이름(`--brand`)도 자리(`a`)도 사이트마다 다르지만, "회색이 아닌 색이 칠해져
+ * 있다면 그게 그 사이트가 고른 색"이라는 것은 사이트를 안 가린다.
+ */
 function sampleAction(el: Element, ink: string): string {
-  const link = el.querySelector('a[href]') ?? document.querySelector('a[href]');
-  return link ? getComputedStyle(link).color : ink;
+  const all = el.querySelectorAll('*');
+  const limit = Math.min(all.length, SCAN_LIMIT);
+  let best: string | null = null;
+  let bestScore = -1;
+
+  for (let i = 0; i < limit; i++) {
+    const cand = all[i]!;
+    const cs = getComputedStyle(cand);
+    const w = actionWeight(cand.tagName);
+    for (const raw of [cs.color, cs.borderTopColor, cs.backgroundColor]) {
+      const c = parseColor(raw);
+      if (!c || c.a < 0.5) continue;
+      const ch = chroma(c);
+      if (ch < MIN_CHROMA) continue;
+      const score = ch + w;
+      if (score > bestScore) { bestScore = score; best = raw; }
+    }
+  }
+
+  return best ?? ink;
 }
 
 function borderWidthPx(v: string): number {
