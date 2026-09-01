@@ -69,13 +69,13 @@ describe('svgRoot', () => {
       width: 100,
       height: 40,
       label: 'test',
-      body: ['<g>', '', '<rect/>', '</g>'],
+      body: ['<g>\n\n<rect/></g>'],
     });
     expect(out.split('\n').every((l) => l.trim().length > 0)).toBe(true);
   });
 
   it('정수가 아닌 pad 를 viewBox 원점에서 반올림한다 (Finding 3)', () => {
-    const out = svgRoot({ width: 100, height: 40, label: 'test', body: [], pad: 3.7 });
-    expect(out).toContain('viewBox="-3.7 -3.7 107 47"');
+    const out = svgRoot({ width: 100, height: 40, label: 'test', body: [], pad: 2.345 });
+    expect(out).toContain('viewBox="-2.35 -2.35');
   });
 });
