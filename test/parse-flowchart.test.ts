@@ -59,27 +59,77 @@ describe('parseFlowchart', () => {
   });
 });
 
-// EDGE 정규식은 화살표 양옆의 공백으로만 간선을 찾는다 — 라벨 안에 공백을
-// 낀 화살표가 있거나 체인 문법처럼 이 정규식이 못 다루는 모양이 오면,
-// 잘못 쪼개진 반쪽이 NODE 정규식에 안 맞아 조용히 틀린 그래프 대신
-// 에러로 끝난다. 아래는 그 경계를 고정해 두는 테스트다.
+// 화살표 스캐너는 한 줄을 왼쪽에서 오른쪽으로 훑어 --> · -.-> 를 찾는다.
+// 양옆 공백은 있어도 없어도 되고, 화살표가 여럿이면 체인이 된다. 대괄호
+// 안팎은 구분하지 않으므로, 라벨 안에 공백 없는 화살표가 있으면 그것도
+// 구분자로 잡혀 잘못 쪼개진다 — 그 결과는 NODE 정규식에 안 맞아 조용히
+// 틀린 그래프 대신 에러로 끝난다. 아래는 그 경계를 고정해 두는 테스트다.
 describe('parseFlowchart — 문법 경계', () => {
+  it('공백 없는 화살표도 공백 있는 화살표와 같은 그래프를 만든다', () => {
+    const spaced = ok('flowchart LR\n A --> B');
+    for (const src of ['flowchart LR\n A-->B', 'flowchart LR\n A--> B', 'flowchart LR\n A -->B']) {
+      const m = ok(src);
+      expect(m.nodes).toEqual(spaced.nodes);
+      expect(m.edges).toEqual(spaced.edges);
+    }
+  });
+
+  it('공백 없는 화살표에 라벨을 바로 붙여도 읽는다', () => {
+    expect(ok('flowchart LR\n A-->|승인|B').edges[0]!.label).toBe('승인');
+  });
+
+  it('공백 없는 점선도 구분한다', () => {
+    expect(ok('flowchart LR\n A-.->B').edges[0]!.line).toBe('dotted');
+    expect(ok('flowchart LR\n A -.-> B').edges[0]!.line).toBe('dotted');
+  });
+
+  it('id 는 유니코드를 허용한다 — 한글 id 도 그대로 읽는다', () => {
+    const m = ok('flowchart LR\n 주문 --> 결제');
+    expect(m.nodes.map((n) => n.id)).toEqual(['주문', '결제']);
+    expect(m.nodes.map((n) => n.label)).toEqual(['주문', '결제']);
+  });
+
+  it('한글 id 에 라벨을 붙여도 읽는다', () => {
+    const m = ok('flowchart LR\n 주문[주문서] --> 결제');
+    const order = m.nodes.find((n) => n.id === '주문')!;
+    expect(order.label).toBe('주문서');
+  });
+
+  it('한 줄 체인(A --> B --> C)은 간선 두 개·노드 세 개로 읽는다', () => {
+    const m = ok('flowchart LR\n A --> B --> C');
+    expect(m.nodes).toHaveLength(3);
+    expect(m.edges.map((e) => [e.from, e.to])).toEqual([
+      ['A', 'B'],
+      ['B', 'C'],
+    ]);
+  });
+
+  it('줄 끝 세미콜론은 벗겨 내고 읽는다', () => {
+    const m = ok('flowchart LR\n A --> B;');
+    expect(m.edges).toHaveLength(1);
+  });
+
+  it('하이픈은 더 이상 id 문자가 아니다 — A-B 는 에러다', () => {
+    const m = parseFlowchart('flowchart LR\n A-B --> C');
+    expect(m).toHaveProperty('error');
+  });
+
+  it('뒤에 노드 없는 화살표는 에러다', () => {
+    const m = parseFlowchart('flowchart LR\n A -->');
+    expect(m).toHaveProperty('error');
+  });
+
   it('라벨 안의 화살표(공백 포함)는 잘못 쪼개져 에러가 된다', () => {
     const m = parseFlowchart('flowchart LR\n A[a --> b] --> B');
     expect(m).toHaveProperty('error');
   });
 
-  it('라벨 안 화살표라도 공백이 없으면 그대로 라벨로 읽힌다', () => {
-    expect(ok('flowchart LR\n A[go-->ok] --> B[b]').nodes[0]!.label).toBe('go-->ok');
-  });
-
-  it('한 줄 체인(A --> B --> C)은 아직 지원하지 않아 에러다', () => {
-    const m = parseFlowchart('flowchart LR\n A --> B --> C');
-    expect(m).toHaveProperty('error');
-  });
-
-  it('id 는 ASCII 로 제한된다 — id 에 쓴 한글은 에러다(라벨은 허용)', () => {
-    const m = parseFlowchart('flowchart LR\n 주문 --> 배송');
+  it('공백 없는 화살표를 전역으로 지원하면서 대괄호 안 화살표도 구분자로 잡혀 에러가 된다', () => {
+    // 문법을 최소로만 넓힌 트레이드오프: 대괄호를 인지하는 스캐너를 새로
+    // 만들지 않았으므로, 라벨 안 화살표가 공백이 없어도 이제는 걸린다
+    // (이전 커밋에서는 공백 있는 화살표만 구분자였어서 이 케이스가 라벨로
+    // 읽혔다 — 공백 없는 화살표를 전역으로 허용하면서 사라진 특례)
+    const m = parseFlowchart('flowchart LR\n A[go-->ok] --> B[b]');
     expect(m).toHaveProperty('error');
   });
 
@@ -103,10 +153,5 @@ describe('parseFlowchart — 문법 경계', () => {
   it('CRLF · 탭 들여쓰기를 허용한다', () => {
     const m = ok('flowchart LR\r\n\tA[a] --> B[b]\r\n');
     expect(m.nodes).toHaveLength(2);
-  });
-
-  it('줄 끝 세미콜론은 지원 범위 밖이라 에러다(문법을 몰래 넓히지 않는다)', () => {
-    const m = parseFlowchart('flowchart LR\n A --> B;');
-    expect(m).toHaveProperty('error');
   });
 });
