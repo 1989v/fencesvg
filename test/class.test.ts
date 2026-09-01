@@ -26,6 +26,11 @@ function pointsOf(svg: string): { x: number; y: number }[] {
       pts.push({ x: x!, y: y! });
     }
   }
+  // 관계 간선은 <path d="M … L … Q …">다 — 커맨드의 좌표쌍을 순서대로 뽑는다.
+  for (const m of svg.matchAll(/<path[^>]*\bd="([^"]+)"/g)) {
+    const nums = (m[1]!.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i]!, y: nums[i + 1]! });
+  }
   return pts;
 }
 
@@ -147,10 +152,11 @@ describe('drawClass — 상자 크기와 방향', () => {
     const child = rectOf(svg, 'Dog');
     expect(parent.y).toBeLessThan(child.y); // 부모가 위에 온다(TD, 뒤집은 간선)
 
-    const poly = /<polyline points="([^"]+)"[^/]*marker-end="url\(#d1-tri\)"/.exec(svg);
+    const poly = /<path d="([^"]+)"[^/]*marker-end="url\(#d1-tri\)"/.exec(svg);
     expect(poly).not.toBeNull();
-    const pts = poly![1]!.split(' ').map((p) => p.split(',').map(Number));
-    const last = pts[pts.length - 1]!;
+    // 경로는 항상 "… L lastX lastY" 로 끝난다 — 끝점은 d 안 마지막 두 숫자다.
+    const nums = (poly![1]!.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    const last = [nums[nums.length - 2]!, nums[nums.length - 1]!];
     // 화살표 끝점은 부모 상자의 아래쪽 변 근처(부모 쪽)에 있어야 한다 — 자식 쪽이 아니라.
     expect(last[1]).toBeGreaterThanOrEqual(parent.y);
     expect(last[1]).toBeLessThanOrEqual(parent.y + parent.h + 1);

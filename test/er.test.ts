@@ -26,6 +26,11 @@ function allPoints(svg: string): { x: number; y: number }[] {
       pts.push({ x: x!, y: y! });
     }
   }
+  // 관계 간선은 <path d="M … L … Q …">다 — 커맨드의 좌표쌍을 순서대로 뽑는다.
+  for (const m of svg.matchAll(/<path[^>]*\bd="([^"]+)"/g)) {
+    const nums = (m[1]!.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i]!, y: nums[i + 1]! });
+  }
   for (const m of svg.matchAll(/<line ([^/]+)\/>/g)) {
     const attrs = m[1]!;
     const x1 = Number(/x1="([-\d.]+)"/.exec(attrs)?.[1]);

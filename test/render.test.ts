@@ -16,6 +16,12 @@ describe('renderDiagram', () => {
     expect(r.svg).not.toBeNull();
   });
 
+  it('강조가 둘 이상이면 경고하지만 그리기는 실패하지 않는다', () => {
+    const r = renderDiagram('%% caption: c\nflowchart LR\n A[a] --> B[b]\n class A emphasis\n class B emphasis');
+    expect(r.warnings.some((w) => w.includes('강조'))).toBe(true);
+    expect(r.svg).not.toBeNull();
+  });
+
   it('던지지 않고 실패를 돌려준다', () => {
     const r = renderDiagram('flowchart LR\n subgraph s\n A --> B\n end');
     expect(r.svg).toBeNull();

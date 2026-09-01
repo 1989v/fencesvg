@@ -2,9 +2,11 @@ import type { FlowModel } from '../parse/types';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { routeEdge } from '../layout/edge';
-import { el, text, svgRoot } from '../svg';
+import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, textBBox } from './bbox';
+import { edgeLabel } from './label';
+import { WEIGHT } from './theme';
 
 const MIN_W = 72;
 const H = 44;
@@ -16,26 +18,34 @@ const H = 44;
  * `ink` 를 호출자가 명시로 넘긴다: 간선 색과 다른 값을 쓰면(예: 간선에
  * `theme.accent`) 화살촉은 안 따라가고 여기서 받은 색으로 남는다.
  */
-export function arrowMarker(id: string, ink: string): string {
+export function arrowMarker(id: string, ink: string, opacity: number): string {
   return el('defs', {}, [
     el('marker',
-      { id, viewBox: '0 0 8 8', refX: 7, refY: 4, markerWidth: 6, markerHeight: 6, orient: 'auto' },
-      [el('polygon', { points: '0,0 8,4 0,8', fill: ink })]),
+      { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' },
+      [el('polygon', { points: '0,0 10,5 0,10', fill: ink, 'fill-opacity': opacity })]),
   ]);
 }
 
-function shapeOf(p: Placed, shape: string, stroke: string): string {
+/**
+ * `isEmphasis` 가 색·굵기·채움을 한 번에 가른다 — 강조는 다이어그램당
+ * 최대 1개(파서가 이미 보장)라 여기선 그냥 받은 대로 쓴다.
+ */
+function shapeOf(p: Placed, shape: string, theme: Theme, isEmphasis: boolean): string {
+  const stroke = isEmphasis ? theme.accent : theme.ink;
+  const strokeWidth = isEmphasis ? 1.25 : 1;
+  const fill = isEmphasis ? theme.accent : theme.ink;
+  const fillOpacity = isEmphasis ? theme.accentTint : theme.surface;
   if (shape === 'diamond') {
     const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
     return el('polygon', {
       points: `${cx},${p.y} ${p.x + p.w},${cy} ${cx},${p.y + p.h} ${p.x},${cy}`,
-      fill: 'none', stroke, 'stroke-width': 1.5,
+      fill, 'fill-opacity': fillOpacity, stroke, 'stroke-width': strokeWidth,
     });
   }
   return el('rect', {
     x: p.x, y: p.y, width: p.w, height: p.h,
     rx: shape === 'round' ? p.h / 2 : 6,
-    fill: 'none', stroke, 'stroke-width': 1.5,
+    fill, 'fill-opacity': fillOpacity, stroke, 'stroke-width': strokeWidth,
   });
 }
 
@@ -75,7 +85,7 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const r of routed) {
     for (const pt of r.path) bbox.point(pt);
-    if (r.e.label) bbox.box(textBBox(r.labelAt.x, r.labelAt.y - 5, r.e.label, theme.labelSize));
+    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme.labelSize, theme.muted).box);
   }
   for (const n of model.nodes) {
     const p = at.get(n.id);
@@ -84,34 +94,36 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   }
   const shift = bbox.shift;
 
-  const body: string[] = [arrowMarker(arrowId, theme.ink)];
+  const body: string[] = [arrowMarker(arrowId, theme.ink, theme.muted)];
 
   for (const r of routed) {
-    const path = r.path.map(shift);
+    const path = r.path.map(shift).map(snapPoint);
     const labelAt = shift(r.labelAt);
-    body.push(el('polyline', {
-      points: path.map((pt) => `${Math.round(pt.x)},${Math.round(pt.y)}`).join(' '),
-      fill: 'none', stroke: theme.ink, 'stroke-width': 1.5,
-      'stroke-dasharray': r.e.line === 'dotted' ? '4 3' : undefined,
+    body.push(el('path', {
+      d: pathData(path),
+      fill: 'none', stroke: theme.ink, 'stroke-opacity': theme.muted, 'stroke-width': 1,
+      'stroke-dasharray': r.e.line === 'dotted' ? '3 3' : undefined,
       'marker-end': `url(#${arrowId})`,
     }));
     if (r.e.label) {
-      body.push(text(r.e.label, {
-        x: labelAt.x, y: labelAt.y - 5, 'text-anchor': 'middle',
-        fill: theme.ink, 'font-size': theme.labelSize,
-      }));
+      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme.labelSize, theme.muted).body);
     }
   }
 
+  // 진입 간선이 없는 노드(그래프의 시작점)는 사각형이라도 둥글게 그린다 —
+  // 마름모(판단)는 이미 다른 모양이니 그대로 두고, 시작만 따로 표시한다.
+  const hasIncoming = new Set(model.edges.map((e) => e.to));
   for (const n of model.nodes) {
     const p0 = at.get(n.id);
     if (!p0) continue;
-    const p: Placed = { ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy };
-    const color = model.emphasis.has(n.id) ? theme.accent : theme.ink;
-    body.push(shapeOf(p, n.shape, color));
+    const p: Placed = snapBox({ ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy });
+    const isEmphasis = model.emphasis.has(n.id);
+    const color = isEmphasis ? theme.accent : theme.ink;
+    const shape = n.shape === 'rect' && !hasIncoming.has(n.id) ? 'round' : n.shape;
+    body.push(shapeOf(p, shape, theme, isEmphasis));
     body.push(text(n.label, {
       x: p.x + p.w / 2, y: p.y + p.h / 2 + theme.fontSize / 3,
-      'text-anchor': 'middle', fill: color, 'font-size': theme.fontSize,
+      'text-anchor': 'middle', fill: color, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
   }
 

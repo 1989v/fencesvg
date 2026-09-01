@@ -11,6 +11,7 @@ export type FlowModel = {
   nodes: FlowNode[];
   edges: FlowEdge[];
   emphasis: Set<string>;
+  warnings: string[]; // 치명적이진 않지만 알려야 하는 것들(예: 강조 2개 이상)
 };
 
 export type ParseError = { error: string };

@@ -34,8 +34,8 @@ describe('발행 경로 왕복', () => {
   });
 
   it('도형이 하나도 안 사라진다', () => {
-    const before = (md.match(/<(rect|polygon|polyline|text|marker)\b/g) ?? []).length;
-    const after = (html.match(/<(rect|polygon|polyline|text|marker)\b/g) ?? []).length;
+    const before = (md.match(/<(rect|polygon|polyline|path|text|marker)\b/g) ?? []).length;
+    const after = (html.match(/<(rect|polygon|polyline|path|text|marker)\b/g) ?? []).length;
     expect(after).toBe(before);
   });
 
@@ -92,8 +92,8 @@ flowchart LR
   });
 
   it('도형이 모두 보존된다', () => {
-    const before = (md.match(/<(rect|polygon|polyline|text|marker)\b/g) ?? []).length;
-    const after = (html.match(/<(rect|polygon|polyline|text|marker)\b/g) ?? []).length;
+    const before = (md.match(/<(rect|polygon|polyline|path|text|marker)\b/g) ?? []).length;
+    const after = (html.match(/<(rect|polygon|polyline|path|text|marker)\b/g) ?? []).length;
     expect(after).toBe(before);
   });
 });
@@ -117,9 +117,11 @@ flowchart LR
   });
 
   it('백엣지(역방향)가 보존된다', () => {
-    const before = (md.match(/<polyline/g) ?? []).length;
-    const after = (html.match(/<polyline/g) ?? []).length;
-    expect(after).toBeGreaterThan(0);
+    // 커넥터는 이제 <polyline> 이 아니라 둥근 모서리 <path> 다.
+    const before = (md.match(/<path\b/g) ?? []).length;
+    const after = (html.match(/<path\b/g) ?? []).length;
+    expect(before).toBeGreaterThan(0);
+    expect(after).toBe(before);
   });
 
   it('marker 참조가 끊기지 않는다', () => {
@@ -147,11 +149,43 @@ describe.each(Object.entries(CASES))('%s 왕복', (_name, src) => {
   const html = publish(md);
 
   it('도형이 하나도 안 사라진다', () => {
-    const count = (s: string) => (s.match(/<(rect|polygon|polyline|line|circle|text|marker)\b/g) ?? []).length;
+    const count = (s: string) => (s.match(/<(rect|polygon|polyline|path|line|circle|text|marker)\b/g) ?? []).length;
     expect(count(html)).toBe(count(md));
   });
 
   it('캡션이 남는다', () => {
     expect(html).toContain('<p>그림: 설명</p>');
+  });
+});
+
+// 디자인 패스가 새로 낸 presentation 속성들 — sanitizer 가 낯선 속성을
+// 조용히 지워도 다른 왕복 테스트는 태그 개수만 세서 못 잡는다. 속성 자체가
+// 살아남는지 이름을 짚어 확인한다.
+describe('디자인 패스 — 새 presentation 속성이 sanitize 를 통과한다', () => {
+  const flowHtml = publish(inlineDiagrams(
+    '```mermaid\n%% caption: c\nflowchart LR\n  A[주문] -->|승인| B{결제}\n  class B emphasis\n```',
+  ));
+  const seqHtml = publish(inlineDiagrams(
+    '```mermaid\n%% caption: c\nsequenceDiagram\n  A->>A: 재시도\n```',
+  ));
+
+  it('fill-opacity 가 살아남는다(노드 채움·라벨 칩)', () => {
+    expect(flowHtml).toMatch(/fill-opacity="[\d.]+"/);
+  });
+
+  it('stroke-opacity 가 살아남는다(간선)', () => {
+    expect(flowHtml).toMatch(/stroke-opacity="[\d.]+"/);
+  });
+
+  it('font-weight 가 살아남는다(활자 위계)', () => {
+    expect(flowHtml).toMatch(/font-weight="\d+"/);
+  });
+
+  it('<path d="…"> 가 살아남는다(둥근 커넥터)', () => {
+    expect(flowHtml).toMatch(/<path d="[^"]+"/);
+  });
+
+  it('opacity(생명선) 가 살아남는다', () => {
+    expect(seqHtml).toMatch(/opacity="0\.\d+"/);
   });
 });

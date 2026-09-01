@@ -2,10 +2,12 @@ import type { FlowModel } from '../parse/types';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { routeEdge } from '../layout/edge';
-import { el, text, svgRoot } from '../svg';
+import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { arrowMarker } from './flowchart';
 import { ContentBBox, textBBox } from './bbox';
+import { edgeLabel } from './label';
+import { WEIGHT } from './theme';
 
 const TERMINAL = 14;
 const MIN_W = 72;
@@ -33,7 +35,7 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   const bbox = new ContentBBox({ minX: 0, minY: 0, maxX: lay.width, maxY: lay.height });
   for (const r of routed) {
     for (const pt of r.path) bbox.point(pt);
-    if (r.e.label) bbox.box(textBBox(r.labelAt.x, r.labelAt.y - 5, r.e.label, theme.labelSize));
+    if (r.e.label) bbox.box(edgeLabel(r.e.label, r.labelAt.x, r.labelAt.y, theme.labelSize, theme.muted).box);
   }
   for (const n of model.nodes) {
     const p = at.get(n.id);
@@ -42,38 +44,37 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   }
   const shift = bbox.shift;
 
-  const body: string[] = [arrowMarker(arrowId, theme.ink)];
+  const body: string[] = [arrowMarker(arrowId, theme.ink, theme.muted)];
 
   for (const r of routed) {
-    const path = r.path.map(shift);
+    const path = r.path.map(shift).map(snapPoint);
     const labelAt = shift(r.labelAt);
-    body.push(el('polyline', {
-      points: path.map((pt) => `${Math.round(pt.x)},${Math.round(pt.y)}`).join(' '),
-      fill: 'none', stroke: theme.ink, 'stroke-width': 1.5, 'marker-end': `url(#${arrowId})`,
+    body.push(el('path', {
+      d: pathData(path),
+      fill: 'none', stroke: theme.ink, 'stroke-opacity': theme.muted, 'stroke-width': 1,
+      'marker-end': `url(#${arrowId})`,
     }));
     if (r.e.label) {
-      body.push(text(r.e.label, {
-        x: labelAt.x, y: labelAt.y - 5, 'text-anchor': 'middle',
-        fill: theme.ink, 'font-size': theme.labelSize,
-      }));
+      body.push(...edgeLabel(r.e.label, labelAt.x, labelAt.y, theme.labelSize, theme.muted).body);
     }
   }
 
   for (const n of model.nodes) {
     const p0 = at.get(n.id);
     if (!p0) continue;
-    const p: Placed = { ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy };
+    const p: Placed = snapBox({ ...p0, x: p0.x + bbox.dx, y: p0.y + bbox.dy });
     if (isTerminal(n.id)) {
       body.push(el('circle', { cx: p.x + p.w / 2, cy: p.y + p.h / 2, r: p.w / 2, fill: theme.ink }));
       continue;
     }
+    // rx=h/2 로 통일해 흐름도(rx=6 사각형)와 한눈에 구분한다.
     body.push(el('rect', {
-      x: p.x, y: p.y, width: p.w, height: p.h, rx: 8,
-      fill: 'none', stroke: theme.ink, 'stroke-width': 1.5,
+      x: p.x, y: p.y, width: p.w, height: p.h, rx: p.h / 2,
+      fill: theme.ink, 'fill-opacity': theme.surface, stroke: theme.ink, 'stroke-width': 1,
     }));
     body.push(text(n.label, {
       x: p.x + p.w / 2, y: p.y + p.h / 2 + theme.fontSize / 3,
-      'text-anchor': 'middle', fill: theme.ink, 'font-size': theme.fontSize,
+      'text-anchor': 'middle', fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));
   }
 

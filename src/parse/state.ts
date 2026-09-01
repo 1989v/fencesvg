@@ -38,5 +38,5 @@ export function parseState(src: string): FlowModel | ParseError {
   }
 
   if (nodes.size === 0) return { error: '상태가 없다' };
-  return { kind: 'state', dir: 'LR', nodes: [...nodes.values()], edges, emphasis: new Set() };
+  return { kind: 'state', dir: 'LR', nodes: [...nodes.values()], edges, emphasis: new Set(), warnings: [] };
 }

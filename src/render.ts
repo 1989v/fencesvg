@@ -57,11 +57,13 @@ export function renderDiagram(source: string, opts: Options = {}): Result {
     if (/^flowchart\b/.test(head)) {
       const model = parseFlowchart(stripLeadingComments(source));
       if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
+      warnings.push(...model.warnings);
       return { svg: drawFlowchart(model, theme, idPrefix, label), caption, warnings };
     }
     if (/^stateDiagram(-v2)?\b/.test(head)) {
       const model = parseState(stripLeadingComments(source));
       if ('error' in model) { warnings.push(model.error); return { svg: null, caption, warnings }; }
+      warnings.push(...model.warnings);
       return { svg: drawState(model, theme, idPrefix, label), caption, warnings };
     }
     if (/^erDiagram\b/.test(head)) {

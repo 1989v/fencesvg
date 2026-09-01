@@ -94,6 +94,7 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
   const nodes = new Map<string, FlowNode>();
   const edges: FlowEdge[] = [];
   const emphasis = new Set<string>();
+  const warnings: string[] = [];
 
   for (const raw of lines.slice(1)) {
     // 줄 끝 세미콜론(선택적 문 종결자)은 여기서 한 번만 벗긴다 — 중간 세미콜론은
@@ -105,7 +106,15 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
 
     if (/^class\s/.test(line)) {
       const [, ids, name] = /^class\s+([^\s]+)\s+(\w+)$/.exec(line) ?? [];
-      if (ids && name === 'emphasis') for (const id of ids.split(',')) emphasis.add(id.trim());
+      if (ids && name === 'emphasis') {
+        // 강조는 다이어그램당 최대 1개다 — 둘이면 초점이 사라진다. 첫 번째만
+        // 받고 나머지는 경고로 남긴 뒤 무시한다(에러로 끝내지는 않는다).
+        for (const rawId of ids.split(',')) {
+          const id = rawId.trim();
+          if (emphasis.size === 0) emphasis.add(id);
+          else warnings.push(`강조는 다이어그램당 최대 1개다 — '${id}' 는 무시한다`);
+        }
+      }
       continue;
     }
 
@@ -149,5 +158,5 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
   }
 
   if (nodes.size === 0) return { error: '노드가 없다' };
-  return { kind: 'flowchart', dir, nodes: [...nodes.values()], edges, emphasis };
+  return { kind: 'flowchart', dir, nodes: [...nodes.values()], edges, emphasis, warnings };
 }

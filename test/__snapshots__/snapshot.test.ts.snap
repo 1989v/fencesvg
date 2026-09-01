@@ -2,119 +2,127 @@
 
 exports[`스냅샷: class-기본 > 출력이 고정된다 1`] = `
 "<svg width="122" height="176" viewBox="-6 -6 122 176" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
-<polyline points="55,92 55,36" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<text x="61" y="73" fill="currentColor" font-size="11">uses</text>
-<rect x="0" y="92" width="110" height="72" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="55" y="111" text-anchor="middle" fill="currentColor" font-size="13">Order</text>
-<line x1="0" y1="120" x2="110" y2="120" stroke="currentColor" stroke-width="1"/>
-<text x="8" y="134" fill="currentColor" font-size="11">+Long id</text>
-<text x="8" y="152" fill="currentColor" font-size="11">+pay()</text>
-<rect x="0" y="0" width="110" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="55" y="19" text-anchor="middle" fill="currentColor" font-size="13">Payment</text>
+<defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="currentColor" fill-opacity="0.55"/></marker></defs>
+<path d="M 56 92 L 56 36" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="58" y="62.8" width="28.72" height="15.45" rx="3" fill="currentColor" fill-opacity="0.06"/>
+<text x="63" y="73" fill="currentColor" fill-opacity="0.55" font-size="9" font-weight="500">uses</text>
+<rect x="0" y="92" width="112" height="28" rx="6" fill="currentColor" fill-opacity="0.04"/>
+<rect x="0" y="92" width="112" height="72" rx="6" fill="none" stroke="currentColor" stroke-width="1"/>
+<text x="56" y="111" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">Order</text>
+<line x1="0" y1="120" x2="112" y2="120" stroke="currentColor" stroke-opacity="0.28" stroke-width="0.75"/>
+<text x="8" y="134" fill="currentColor" fill-opacity="0.55" font-size="10" font-weight="400">+Long id</text>
+<text x="8" y="152" fill="currentColor" fill-opacity="0.55" font-size="10" font-weight="400">+pay()</text>
+<rect x="0" y="0" width="112" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="1"/>
+<text x="56" y="19" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">Payment</text>
 </svg>"
 `;
 
 exports[`스냅샷: er-기본 > 출력이 고정된다 1`] = `
 "<svg width="244" height="56" viewBox="-6 -6 244 56" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<polyline points="88,22 144,22" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<line x1="98" y1="27" x2="98" y2="17" stroke="currentColor" stroke-width="1.5"/>
-<line x1="134" y1="22" x2="144" y2="27" stroke="currentColor" stroke-width="1.5"/>
-<line x1="134" y1="22" x2="144" y2="22" stroke="currentColor" stroke-width="1.5"/>
-<line x1="134" y1="22" x2="144" y2="17" stroke="currentColor" stroke-width="1.5"/>
-<circle cx="128" cy="22" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="116" y="16" text-anchor="middle" fill="currentColor" font-size="11">contains</text>
-<rect x="0" y="0" width="88" height="44" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="44" y="26.33" text-anchor="middle" fill="currentColor" font-size="13">ORDER</text>
-<rect x="144" y="0" width="88" height="44" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="188" y="26.33" text-anchor="middle" fill="currentColor" font-size="13">ITEM</text>
+<path d="M 88 24 L 144 24" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1"/>
+<line x1="98" y1="29" x2="98" y2="19" stroke="currentColor" stroke-opacity="0.55" stroke-width="1"/>
+<line x1="134" y1="24" x2="144" y2="29" stroke="currentColor" stroke-opacity="0.55" stroke-width="1"/>
+<line x1="134" y1="24" x2="144" y2="24" stroke="currentColor" stroke-opacity="0.55" stroke-width="1"/>
+<line x1="134" y1="24" x2="144" y2="19" stroke="currentColor" stroke-opacity="0.55" stroke-width="1"/>
+<circle cx="128" cy="24" r="3.5" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1"/>
+<rect x="92.28" y="3.8" width="47.44" height="15.45" rx="3" fill="currentColor" fill-opacity="0.06"/>
+<text x="116" y="14" text-anchor="middle" fill="currentColor" fill-opacity="0.55" font-size="9" font-weight="500">contains</text>
+<rect x="0" y="0" width="88" height="44" rx="6" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="44" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">ORDER</text>
+<rect x="144" y="0" width="88" height="44" rx="6" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="188" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">ITEM</text>
 </svg>"
 `;
 
 exports[`스냅샷: flowchart-TD > 출력이 고정된다 1`] = `
 "<svg width="176" height="152" viewBox="-4 -4 176 152" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
-<polyline points="84,44 84,72 36,72 36,100" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<polyline points="84,44 84,72 132,72 132,100" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<rect x="48" y="0" width="72" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="84" y="26.33" text-anchor="middle" fill="currentColor" font-size="13">a</text>
-<rect x="0" y="100" width="72" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="36" y="126.33" text-anchor="middle" fill="currentColor" font-size="13">b</text>
-<rect x="96" y="100" width="72" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="132" y="126.33" text-anchor="middle" fill="currentColor" font-size="13">c</text>
+<defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="currentColor" fill-opacity="0.55"/></marker></defs>
+<path d="M 84 44 L 84 66 Q 84 72 78 72 L 42 72 Q 36 72 36 78 L 36 100" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<path d="M 84 44 L 84 66 Q 84 72 90 72 L 126 72 Q 132 72 132 78 L 132 100" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="48" y="0" width="72" height="44" rx="22" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="84" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">a</text>
+<rect x="0" y="100" width="72" height="44" rx="6" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="36" y="126" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">b</text>
+<rect x="96" y="100" width="72" height="44" rx="6" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="132" y="126" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">c</text>
 </svg>"
 `;
 
 exports[`스냅샷: flowchart-기본 > 출력이 고정된다 1`] = `
 "<svg width="365" height="52" viewBox="-4 -4 365 52" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
-<polyline points="72,22 128,22" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<text x="107.2" y="17" text-anchor="middle" fill="currentColor" font-size="11">승인</text>
-<polyline points="229,22 285,22" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<rect x="0" y="0" width="72" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="36" y="26.33" text-anchor="middle" fill="currentColor" font-size="13">주문</text>
-<polygon points="178.4,0 228.8,22 178.4,44 128,22" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="178.4" y="26.33" text-anchor="middle" fill="currentColor" font-size="13">결제</text>
-<rect x="284.8" y="0" width="72" height="44" rx="22" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
-<text x="320.8" y="26.33" text-anchor="middle" fill="var(--accent)" font-size="13">재고</text>
+<defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="currentColor" fill-opacity="0.55"/></marker></defs>
+<path d="M 72 24 L 128 24" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="93.2" y="3.8" width="28" height="15.45" rx="3" fill="currentColor" fill-opacity="0.06"/>
+<text x="107.2" y="14" text-anchor="middle" fill="currentColor" fill-opacity="0.55" font-size="9" font-weight="500">승인</text>
+<path d="M 228 24 L 284 24" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="0" y="0" width="72" height="44" rx="22" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="36" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">주문</text>
+<polygon points="178,0 228,22 178,44 128,22" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="178" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">결제</text>
+<rect x="284" y="0" width="72" height="44" rx="22" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.25"/>
+<text x="320" y="26" text-anchor="middle" fill="var(--accent)" font-size="12" font-weight="600">재고</text>
 </svg>"
 `;
 
 exports[`스냅샷: flowchart-점선 > 출력이 고정된다 1`] = `
 "<svg width="208" height="52" viewBox="-4 -4 208 52" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
-<polyline points="72,22 128,22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#d1-arrow)"/>
-<rect x="0" y="0" width="72" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="36" y="26.33" text-anchor="middle" fill="currentColor" font-size="13">a</text>
-<rect x="128" y="0" width="72" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="164" y="26.33" text-anchor="middle" fill="currentColor" font-size="13">b</text>
+<defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="currentColor" fill-opacity="0.55"/></marker></defs>
+<path d="M 72 24 L 128 24" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#d1-arrow)"/>
+<rect x="0" y="0" width="72" height="44" rx="22" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="36" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">a</text>
+<rect x="128" y="0" width="72" height="44" rx="6" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="164" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">b</text>
 </svg>"
 `;
 
 exports[`스냅샷: sequence-기본 > 출력이 고정된다 1`] = `
 "<svg width="204" height="168" viewBox="-6 -6 204 168" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
-<line x1="48" y1="36" x2="48" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
-<line x1="144" y1="36" x2="144" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
-<line x1="48" y1="56" x2="144" y2="56" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<text x="96" y="50" text-anchor="middle" fill="currentColor" font-size="11">요청</text>
-<line x1="144" y1="100" x2="48" y2="100" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#d1-arrow)"/>
-<text x="96" y="94" text-anchor="middle" fill="currentColor" font-size="11">승인</text>
-<rect x="21" y="0" width="54" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="48" y="18.33" text-anchor="middle" fill="currentColor" font-size="13">주문</text>
-<rect x="117" y="0" width="54" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="144" y="18.33" text-anchor="middle" fill="currentColor" font-size="13">결제</text>
+<defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="currentColor" fill-opacity="0.55"/></marker></defs>
+<line x1="48" y1="36" x2="48" y2="148" stroke="currentColor" stroke-width="0.75" stroke-dasharray="3 3" opacity="0.28"/>
+<line x1="144" y1="36" x2="144" y2="148" stroke="currentColor" stroke-width="0.75" stroke-dasharray="3 3" opacity="0.28"/>
+<line x1="48" y1="56" x2="144" y2="56" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="82" y="37.8" width="28" height="15.45" rx="3" fill="currentColor" fill-opacity="0.06"/>
+<text x="96" y="48" text-anchor="middle" fill="currentColor" fill-opacity="0.55" font-size="9" font-weight="500">요청</text>
+<line x1="144" y1="100" x2="48" y2="100" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#d1-arrow)"/>
+<rect x="82" y="81.8" width="28" height="15.45" rx="3" fill="currentColor" fill-opacity="0.06"/>
+<text x="96" y="92" text-anchor="middle" fill="currentColor" fill-opacity="0.55" font-size="9" font-weight="500">승인</text>
+<rect x="24" y="0" width="52" height="28" rx="4" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="48" y="18" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">주문</text>
+<rect x="120" y="0" width="52" height="28" rx="4" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="144" y="18" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">결제</text>
 </svg>"
 `;
 
 exports[`스냅샷: sequence-노트 > 출력이 고정된다 1`] = `
 "<svg width="204" height="168" viewBox="-6 -6 204 168" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
-<line x1="48" y1="36" x2="48" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
-<line x1="144" y1="36" x2="144" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
-<line x1="48" y1="56" x2="144" y2="56" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<text x="96" y="50" text-anchor="middle" fill="currentColor" font-size="11">x</text>
-<rect x="112" y="86" width="64" height="24" rx="3" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3"/>
-<text x="144" y="102" text-anchor="middle" fill="currentColor" font-size="11">검증한다</text>
-<rect x="29.71" y="0" width="36.58" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="48" y="18.33" text-anchor="middle" fill="currentColor" font-size="13">A</text>
-<rect x="125.71" y="0" width="36.58" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="144" y="18.33" text-anchor="middle" fill="currentColor" font-size="13">B</text>
+<defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="currentColor" fill-opacity="0.55"/></marker></defs>
+<line x1="48" y1="36" x2="48" y2="148" stroke="currentColor" stroke-width="0.75" stroke-dasharray="3 3" opacity="0.28"/>
+<line x1="144" y1="36" x2="144" y2="148" stroke="currentColor" stroke-width="0.75" stroke-dasharray="3 3" opacity="0.28"/>
+<line x1="48" y1="56" x2="144" y2="56" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="88.66" y="37.8" width="14.68" height="15.45" rx="3" fill="currentColor" fill-opacity="0.06"/>
+<text x="96" y="48" text-anchor="middle" fill="currentColor" fill-opacity="0.55" font-size="9" font-weight="500">x</text>
+<rect x="116" y="88" width="56" height="24" rx="3" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="144" y="102" text-anchor="middle" fill="currentColor" font-size="9">검증한다</text>
+<rect x="32" y="0" width="36" height="28" rx="4" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="48" y="18" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">A</text>
+<rect x="128" y="0" width="36" height="28" rx="4" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="144" y="18" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">B</text>
 </svg>"
 `;
 
 exports[`스냅샷: state-기본 > 출력이 고정된다 1`] = `
-"<svg width="364" height="48" viewBox="-4 -4 364 48" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
-<polyline points="14,20 70,20" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<polyline points="158,20 214,20" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<text x="182.05" y="15" text-anchor="middle" fill="currentColor" font-size="11">승인</text>
-<polyline points="286,20 342,20" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
-<circle cx="7" cy="20" r="7" fill="currentColor"/>
-<rect x="70" y="0" width="88.06" height="40" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="114.03" y="24.33" text-anchor="middle" fill="currentColor" font-size="13">PENDING</text>
-<rect x="214.06" y="0" width="72" height="40" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-<text x="250.06" y="24.33" text-anchor="middle" fill="currentColor" font-size="13">PAID</text>
-<circle cx="349.06" cy="20" r="7" fill="currentColor"/>
+"<svg width="359" height="48" viewBox="-4 -4 359 48" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="currentColor" fill-opacity="0.55"/></marker></defs>
+<path d="M 16 20 L 72 20" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<path d="M 152 20 L 208 20" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="164.58" y="1.8" width="28" height="15.45" rx="3" fill="currentColor" fill-opacity="0.06"/>
+<text x="178.58" y="12" text-anchor="middle" fill="currentColor" fill-opacity="0.55" font-size="9" font-weight="500">승인</text>
+<path d="M 280 20 L 336 20" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<circle cx="8" cy="20" r="8" fill="currentColor"/>
+<rect x="72" y="0" width="84" height="40" rx="20" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="114" y="24" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">PENDING</text>
+<rect x="208" y="0" width="72" height="40" rx="20" fill="currentColor" fill-opacity="0.04" stroke="currentColor" stroke-width="1"/>
+<text x="244" y="24" text-anchor="middle" fill="currentColor" font-size="12" font-weight="600">PAID</text>
+<circle cx="344" cy="20" r="8" fill="currentColor"/>
 </svg>"
 `;

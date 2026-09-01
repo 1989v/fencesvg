@@ -64,7 +64,8 @@ describe('sequence 렌더', () => {
   });
 
   it('참가자 상자와 생명선을 그린다', () => {
-    expect((r.svg!.match(/<rect/g) ?? []).length).toBe(2);
+    // 참가자 상자 2개 + 메시지 라벨("승인 요청"·"승인") 배경 칩 2개
+    expect((r.svg!.match(/<rect/g) ?? []).length).toBe(4);
     expect((r.svg!.match(/<line/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 
@@ -83,11 +84,14 @@ describe('drawSequence — task 13 회귀 고정', () => {
   it('자기 메시지는 고리를 그리고 마지막 구간이 생명선으로 되돌아간다', () => {
     const svg = renderDiagram('%% caption: 재시도\nsequenceDiagram\n A->>A: 재시도').svg!;
     const vb = viewBoxOf(svg);
-    const poly = /<polyline points="([^"]+)"/.exec(svg);
+    const poly = /<path d="([^"]+)"/.exec(svg);
     expect(poly).not.toBeNull();
-    const pts = poly![1]!.split(' ').map((p) => p.split(',').map(Number) as [number, number]);
-    expect(pts).toHaveLength(4);
-    const first = pts[0]!, last = pts[3]!;
+    // 4점 폴리라인이던 고리는 이제 내부 꺾임 2개짜리 둥근 path 다 — Q 커맨드 2개로 확인한다.
+    expect((poly![1]!.match(/Q /g) ?? []).length).toBe(2);
+    const nums = (poly![1]!.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    const pts: [number, number][] = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) pts.push([nums[i]!, nums[i + 1]!]);
+    const first = pts[0]!, last = pts[pts.length - 1]!;
     // 고리는 생명선에서 나가 사각형을 돌아 같은 x(생명선)로 돌아온다 —
     // 마지막 점의 x 가 첫 점과 같아야 "되돌아간" 것이다.
     expect(last[0]).toBeCloseTo(first[0], 1);

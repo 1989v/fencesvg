@@ -44,6 +44,21 @@ describe('parseFlowchart', () => {
     expect(ok('flowchart LR\n A[a] --> B[b]\n class B emphasis').emphasis.has('B')).toBe(true);
   });
 
+  it('강조는 다이어그램당 최대 1개 — 두 번째부터는 무시하고 경고를 남긴다', () => {
+    const m = ok('flowchart LR\n A[a] --> B[b] --> C[c]\n class A emphasis\n class B emphasis');
+    expect(m.emphasis.size).toBe(1);
+    expect(m.emphasis.has('A')).toBe(true);
+    expect(m.emphasis.has('B')).toBe(false);
+    expect(m.warnings.some((w) => w.includes('B'))).toBe(true);
+  });
+
+  it('한 줄에 콤마로 여럿을 강조해도 최대 1개만 받는다', () => {
+    const m = ok('flowchart LR\n A[a] --> B[b]\n class A,B emphasis');
+    expect(m.emphasis.size).toBe(1);
+    expect(m.emphasis.has('A')).toBe(true);
+    expect(m.warnings.length).toBe(1);
+  });
+
   it('%% 주석을 건너뛴다', () => {
     expect(ok('flowchart LR\n %% caption: 설명\n A[a] --> B[b]').nodes).toHaveLength(2);
   });

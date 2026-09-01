@@ -14,7 +14,8 @@ describe('drawFlowchart', () => {
   const out = draw('flowchart LR\n A[주문] -->|승인| B{결제}\n B -.-> C(취소)\n class C emphasis');
 
   it('노드마다 도형이 하나씩 나온다', () => {
-    expect((out.match(/<rect/g) ?? []).length).toBe(2);   // 사각 + 둥근
+    // 사각(A) + 둥근(C) + 간선 라벨("승인") 배경 칩까지 rect 셋
+    expect((out.match(/<rect/g) ?? []).length).toBe(3);
     expect((out.match(/<polygon/g) ?? []).length).toBeGreaterThanOrEqual(1); // 마름모 + 화살촉
   });
 
@@ -73,6 +74,13 @@ function points(out: string): { box: [number, number, number, number]; pts: [num
     const [x, y, w, h] = [1, 2, 3, 4].map((i) => Number(m[i]));
     pts.push([x!, y!], [x! + w!, y! + h!]);
   }
+  // 간선은 이제 <path d="M … L … Q …">다 — 각 커맨드의 좌표쌍을 순서대로
+  // 뽑는다(Q 의 제어점도 포함: 2차 베지어는 시작·제어·끝점의 볼록 껍질을
+  // 벗어나지 않으므로, 그 점들이 전부 viewBox 안이면 곡선도 안이다).
+  for (const m of out.matchAll(/<path[^>]*\bd="([^"]+)"/g)) {
+    const nums = (m[1]!.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) pts.push([nums[i]!, nums[i + 1]!]);
+  }
   return { box, pts };
 }
 
@@ -113,8 +121,9 @@ describe('drawFlowchart — 역방향 우회선', () => {
   it('순환이 있으면 역방향 간선이 5점 경로로 나오고, 그 점이 전부 viewBox 안에 있다', () => {
     // A --> B --> C 다음 C -.-> B 는 레이아웃 랭크상 역방향이 되어 상자를 우회한다
     const out = draw('flowchart LR\n A[start] --> B[retry] --> C[done]\n C -.-> B');
-    const backEdgePolyline = out.split('\n').find((l) => l.startsWith('<polyline') && (l.match(/,/g) ?? []).length >= 5);
-    expect(backEdgePolyline).toBeDefined(); // 5점 경로 = 콤마 5개
+    // 5점 경로 = 내부 꺾임 3개 = <path d="…"> 안의 Q(둥근 모서리) 커맨드 3개
+    const backEdgePath = out.split('\n').find((l) => l.startsWith('<path') && (l.match(/Q /g) ?? []).length >= 3);
+    expect(backEdgePath).toBeDefined();
 
     assertAllContentWithinViewBox(out);
   });
@@ -157,12 +166,12 @@ describe('drawFlowchart — 마름모 라벨', () => {
   it('짧은 라벨은 마름모 안에 들어간다', () => {
     const out = draw('flowchart LR\n A[a] --> B{결제}');
     const lines = out.split('\n');
-    const polyIdx = lines.findIndex((l) => l.startsWith('<polygon') && l.includes('fill="none"'));
+    const polyIdx = lines.findIndex((l) => l.startsWith('<polygon')); // 마름모(다이어그램 최상위 polygon) — 화살촉은 <defs> 줄 안에 중첩돼 있어 안 걸린다
     const quad = parseDiamond(/points="([^"]+)"/.exec(lines[polyIdx]!)![1]!);
     const tm = /<text x="([\d.]+)" y="([\d.]+)"[^>]*>([^<]*)<\/text>/.exec(lines[polyIdx + 1]!)!;
     const [tx, baseY, label] = [Number(tm[1]), Number(tm[2]), tm[3]!];
-    const textHalfW = ([...label].length * 13 * 1.0) / 2; // 한글은 전각 근사(1em)
-    const capTop = baseY - 13 * 0.72, descBot = baseY + 13 * 0.2;
+    const textHalfW = ([...label].length * 12 * 1.0) / 2; // 한글은 전각 근사(1em)
+    const capTop = baseY - 12 * 0.72, descBot = baseY + 12 * 0.2;
     const worst = Math.min(diamondHalfWidthAt(quad, capTop), diamondHalfWidthAt(quad, descBot));
     expect(tx).toBeCloseTo((quad[0][0] + quad[2][0]) / 2, 0); // 텍스트는 마름모 중심에 온다
     expect(textHalfW).toBeLessThanOrEqual(worst);
@@ -172,13 +181,13 @@ describe('drawFlowchart — 마름모 라벨', () => {
     const label = '가나다라마바사아자차카타파하거너더러머'; // 20자
     const out = draw(`flowchart LR\n A[a] --> B{${label}}`);
     const lines = out.split('\n');
-    const polyIdx = lines.findIndex((l) => l.startsWith('<polygon') && l.includes('fill="none"'));
+    const polyIdx = lines.findIndex((l) => l.startsWith('<polygon')); // 마름모(다이어그램 최상위 polygon) — 화살촉은 <defs> 줄 안에 중첩돼 있어 안 걸린다
     const quad = parseDiamond(/points="([^"]+)"/.exec(lines[polyIdx]!)![1]!);
     const tm = /<text x="([\d.]+)" y="([\d.]+)"[^>]*>([^<]*)<\/text>/.exec(lines[polyIdx + 1]!)!;
     const [baseY, textLabel] = [Number(tm[2]), tm[3]!];
     expect(textLabel).toBe(label);
-    const textHalfW = ([...textLabel].length * 13 * 1.0) / 2;
-    const capTop = baseY - 13 * 0.72, descBot = baseY + 13 * 0.2;
+    const textHalfW = ([...textLabel].length * 12 * 1.0) / 2;
+    const capTop = baseY - 12 * 0.72, descBot = baseY + 12 * 0.2;
     const worst = Math.min(diamondHalfWidthAt(quad, capTop), diamondHalfWidthAt(quad, descBot));
     expect(textHalfW).toBeLessThanOrEqual(worst);
   });
@@ -206,9 +215,9 @@ describe('drawFlowchart — 경계 사례', () => {
 
   it('emphasis 노드 자신에 붙은 간선은 accent 를 타지 않고 currentColor 로 남는다', () => {
     const out = draw('flowchart LR\n A[a] --> B[b]\n class B emphasis');
-    const polylineLines = out.split('\n').filter((l) => l.startsWith('<polyline'));
-    expect(polylineLines.length).toBeGreaterThan(0);
-    for (const l of polylineLines) {
+    const edgeLines = out.split('\n').filter((l) => l.startsWith('<path'));
+    expect(edgeLines.length).toBeGreaterThan(0);
+    for (const l of edgeLines) {
       expect(l).toContain('stroke="currentColor"');
       expect(l).not.toContain('var(--accent)');
     }
