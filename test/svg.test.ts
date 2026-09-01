@@ -40,7 +40,8 @@ describe('svgRoot', () => {
 
   it('viewBox 를 쓰고 width·height 속성은 안 쓴다', () => {
     expect(out).toContain('viewBox="0 0 100 40"');
-    expect(out).not.toMatch(/<svg[^>]*\swidth=/);
+    // 고유 크기를 함께 낸다 — viewBox 만 있으면 브라우저가 컨테이너 폭에 맞춰 확대한다
+    expect(out).toMatch(/<svg width="100" height="40" viewBox="0 0 100 40"/);
   });
 
   it('role 과 aria-label 을 단다', () => {

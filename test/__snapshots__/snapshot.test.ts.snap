@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`스냅샷: class-기본 > 출력이 고정된다 1`] = `
-"<svg viewBox="-6 -6 122 176" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="122" height="176" viewBox="-6 -6 122 176" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
 <polyline points="55,92 55,36" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
 <text x="61" y="73" fill="currentColor" font-size="11">uses</text>
@@ -16,7 +16,7 @@ exports[`스냅샷: class-기본 > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: er-기본 > 출력이 고정된다 1`] = `
-"<svg viewBox="-6 -6 244 56" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="244" height="56" viewBox="-6 -6 244 56" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <polyline points="88,22 144,22" fill="none" stroke="currentColor" stroke-width="1.5"/>
 <line x1="98" y1="27" x2="98" y2="17" stroke="currentColor" stroke-width="1.5"/>
 <line x1="134" y1="22" x2="144" y2="27" stroke="currentColor" stroke-width="1.5"/>
@@ -32,7 +32,7 @@ exports[`스냅샷: er-기본 > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: flowchart-TD > 출력이 고정된다 1`] = `
-"<svg viewBox="-4 -4 176 152" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="176" height="152" viewBox="-4 -4 176 152" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
 <polyline points="84,44 84,72 36,72 36,100" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
 <polyline points="84,44 84,72 132,72 132,100" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
@@ -46,7 +46,7 @@ exports[`스냅샷: flowchart-TD > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: flowchart-기본 > 출력이 고정된다 1`] = `
-"<svg viewBox="-4 -4 365 52" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="365" height="52" viewBox="-4 -4 365 52" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
 <polyline points="72,22 128,22" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
 <text x="107.2" y="17" text-anchor="middle" fill="currentColor" font-size="11">승인</text>
@@ -61,7 +61,7 @@ exports[`스냅샷: flowchart-기본 > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: flowchart-점선 > 출력이 고정된다 1`] = `
-"<svg viewBox="-4 -4 208 52" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="208" height="52" viewBox="-4 -4 208 52" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
 <polyline points="72,22 128,22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#d1-arrow)"/>
 <rect x="0" y="0" width="72" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
@@ -72,7 +72,7 @@ exports[`스냅샷: flowchart-점선 > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: sequence-기본 > 출력이 고정된다 1`] = `
-"<svg viewBox="-6 -6 204 168" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="204" height="168" viewBox="-6 -6 204 168" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
 <line x1="48" y1="36" x2="48" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
 <line x1="144" y1="36" x2="144" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
@@ -88,7 +88,7 @@ exports[`스냅샷: sequence-기본 > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: sequence-노트 > 출력이 고정된다 1`] = `
-"<svg viewBox="-6 -6 204 168" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="204" height="168" viewBox="-6 -6 204 168" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
 <line x1="48" y1="36" x2="48" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
 <line x1="144" y1="36" x2="144" y2="148" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
@@ -104,7 +104,7 @@ exports[`스냅샷: sequence-노트 > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: state-기본 > 출력이 고정된다 1`] = `
-"<svg viewBox="-4 -4 364 48" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
+"<svg width="364" height="48" viewBox="-4 -4 364 48" role="img" aria-label="설명" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><polygon points="0,0 8,4 0,8" fill="currentColor"/></marker></defs>
 <polyline points="14,20 70,20" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>
 <polyline points="158,20 214,20" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#d1-arrow)"/>

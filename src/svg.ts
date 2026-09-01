@@ -48,6 +48,13 @@ export function svgRoot(o: { width: number; height: number; label: string; body:
       }
     }
   }
-  const open = `<svg viewBox="${Math.round(-p * 100) / 100} ${Math.round(-p * 100) / 100} ${Math.round(o.width + p * 2)} ${Math.round(o.height + p * 2)}" role="img" aria-label="${escapeXml(o.label)}" xmlns="http://www.w3.org/2000/svg">`;
+  const w = Math.round(o.width + p * 2);
+  const h = Math.round(o.height + p * 2);
+  const origin = Math.round(-p * 100) / 100;
+  // width/height 를 함께 낸다. viewBox 만 있으면 SVG 에 고유 크기가 없어서 브라우저가
+  // 컨테이너 폭에 맞춰 **늘린다** — 좁은 그림일수록 심하게 부푼다(122×194 클래스 그림이
+  // 704×1119 로 5.8배가 된 실측). 고유 크기가 있으면 `max-width:100%; height:auto` 가
+  // 좁은 화면에서 줄이기만 하고 확대하지 않는다.
+  const open = `<svg width="${w}" height="${h}" viewBox="${origin} ${origin} ${w} ${h}" role="img" aria-label="${escapeXml(o.label)}" xmlns="http://www.w3.org/2000/svg">`;
   return [open, ...lines, '</svg>'].join('\n');
 }
