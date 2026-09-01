@@ -10,11 +10,11 @@ export type Options = {
 export type Result = { svg: string | null; caption: string | null; warnings: string[] };
 
 const CAPTION = /^\s*%%\s*caption:\s*(.+)$/m;
-// mermaid 뒤(혹은 diagram 뒤)에 오는 나머지 정보 문자열(`title=x` 같은 것)은
-// 무시한다 — 펜스를 여는 줄 전체가 아니라 언어 태그만 본다. 닫는 펜스는 들여쓴
-// 리스트 항목 안에 있을 수 있어 줄 앞 공백을 허용한다(`^```` 로 고정하면
-// 들여쓴 펜스를 못 찾는다).
-const FENCE = /^([ \t]*)(`{3,}|~{3,})(?:mermaid|diagram)[^\n]*\n([\s\S]*?)^\1\2[ \t]*$/gm;
+// 펜스 여는 줄: 들여쓰기(리스트 항목 지원) + 백틱 3개 이상 또는 물결 3개
+// 이상 + 나머지 정보 문자열. 언어 태그가 뭐든(`mermaid` 가 아니어도) 일단
+// "펜스가 열렸다"로만 본다 — 실제로 변환할지는 정보 문자열이 `mermaid`/
+// `diagram` 으로 시작하는지에 달렸고, 그건 별도로 판정한다.
+const FENCE_OPEN = /^([ \t]*)(`{3,}|~{3,})([^\n]*)$/;
 
 function captionOf(src: string): string | null {
   return CAPTION.exec(src)?.[1]?.trim() ?? null;
@@ -63,13 +63,66 @@ export function renderDiagram(source: string, opts: Options = {}): Result {
   }
 }
 
+/**
+ * CommonMark 대로: 펜스 안은 자기 닫는 펜스(같은 문자, 길이는 여는 쪽 이상,
+ * 나머지는 공백)를 만나기 전까진 전부 리터럴이다 — 안에서 다른 펜스가 여는
+ * 것처럼 보이는 줄도 "새 펜스 열기"가 아니라 그냥 그 줄의 문자일 뿐이다.
+ * `indent` 는 여는 줄 것과 정확히 같아야 닫힌 것으로 본다(들여쓰기가
+ * 조금 달라도 닫힌 것으로 치는 CommonMark 의 느슨한 규칙까지는 안 간다 —
+ * 리스트 항목처럼 들여쓰기가 고정된 실사용 범위에선 이 정도로 충분하다).
+ */
+function closerAt(lines: string[], j: number, indent: string, fenceChar: string, minLen: number): boolean {
+  const line = lines[j];
+  if (line === undefined || !line.startsWith(indent)) return false;
+  const rest = line.slice(indent.length);
+  let k = 0;
+  while (k < rest.length && rest[k] === fenceChar) k++;
+  return k >= minLen && rest.slice(k).trim() === '';
+}
+
 export function inlineDiagrams(markdown: string, opts: Options = {}): string {
+  const lines = markdown.split('\n');
+  const out: string[] = [];
   let n = 0;
-  FENCE.lastIndex = 0;
-  return markdown.replace(FENCE, (whole, _indent: string, _fenceChars: string, body: string) => {
+  let i = 0;
+
+  while (i < lines.length) {
+    const open = FENCE_OPEN.exec(lines[i]!);
+    if (!open) { out.push(lines[i]!); i++; continue; }
+
+    const [, indent, fenceChars, info] = open as unknown as [string, string, string, string];
+    const fenceChar = fenceChars[0]!;
+    let j = i + 1;
+    while (j < lines.length && !closerAt(lines, j, indent, fenceChar, fenceChars.length)) j++;
+
+    if (j >= lines.length) {
+      // 안 닫혔다 — 여기부터 문서 끝까지 전부 그 펜스의 리터럴 몸통이다.
+      // 그 안에 진짜 mermaid 펜스처럼 보이는 줄이 있어도 "새로 열린 펜스"가
+      // 아니므로 더 훑지 않고 나머지를 통째로 원문 그대로 낸다.
+      out.push(...lines.slice(i));
+      break;
+    }
+
+    const isTarget = /^(mermaid|diagram)\b/.test(info);
+    if (!isTarget) {
+      out.push(...lines.slice(i, j + 1));            // 대상 아닌 펜스는 안쪽까지 통째로 리터럴
+      i = j + 1;
+      continue;
+    }
+
     n += 1;
+    const body = lines.slice(i + 1, j).join('\n');
     const r = renderDiagram(body, { ...opts, idPrefix: opts.idPrefix ?? `d${n}` });
-    if (!r.svg) return whole;                       // 실패하면 코드블록으로 남긴다
-    return r.caption ? `${r.svg}\n\n그림: ${r.caption}` : r.svg;
-  });
+    if (!r.svg) {
+      out.push(...lines.slice(i, j + 1));             // 실패하면 코드블록으로 남긴다
+    } else {
+      // "그림: " 접두어가 붙어 캡션이 줄 맨 앞에 오지 않으므로, 캡션 앞머리의
+      // `#`/`-` 같은 마크다운 특수문자가 헤딩·리스트로 오작동할 일이 없다 —
+      // 그래서 이스케이프를 안 한다(강조 마크업은 오히려 의도한 대로 쓰게 둔다).
+      out.push(r.caption ? `${r.svg}\n\n그림: ${r.caption}` : r.svg);
+    }
+    i = j + 1;
+  }
+
+  return out.join('\n');
 }
