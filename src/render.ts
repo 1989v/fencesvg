@@ -19,6 +19,10 @@ export type Options = {
 export type Result = { svg: string | null; caption: string | null; warnings: string[] };
 
 const CAPTION = /^\s*%%\s*caption:\s*(.+)$/m;
+// `%% source` 한 줄이 있으면 원문과 그림을 나란히 낸다. mermaid 주석이라
+// 다른 렌더러에서는 그냥 무시된다 — 정보 문자열을 건드리면 그쪽에서 태그가
+// 깨진다.
+const SOURCE_DIRECTIVE = /^\s*%%\s*source\s*$/m;
 // 펜스 여는 줄: 들여쓰기(리스트 항목 지원) + 백틱 3개 이상 또는 물결 3개
 // 이상 + 나머지 정보 문자열. 언어 태그가 뭐든(`mermaid` 가 아니어도) 일단
 // "펜스가 열렸다"로만 본다 — 실제로 변환할지는 정보 문자열이 `mermaid`/
@@ -27,6 +31,31 @@ const FENCE_OPEN = /^([ \t]*)(`{3,}|~{3,})([^\n]*)$/;
 
 function captionOf(src: string): string | null {
   return CAPTION.exec(src)?.[1]?.trim() ?? null;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * 원문과 그림을 나란히 낸다.
+ *
+ * 두 칸은 `auto-fit` 격자다 — 미디어 쿼리를 못 쓰는 인라인 스타일에서
+ * 좁은 화면 대응을 하는 유일한 방법이고, 컨테이너가 두 칸을 못 담으면
+ * 알아서 한 칸으로 쌓인다.
+ *
+ * 지시문 두 줄(`%% caption:`·`%% source`)은 원문에서 뺀다. 읽는 사람이
+ * 베껴 갈 것은 다이어그램 문법이지 이 라이브러리의 지시문이 아니다.
+ */
+function sourcePair(body: string, svg: string): string {
+  const shown = body
+    .split('\n')
+    .filter((l) => !CAPTION.test(l) && !SOURCE_DIRECTIVE.test(l))
+    .join('\n')
+    .trim();
+  const code = `<pre><code class="language-mermaid">${escapeHtml(shown)}</code></pre>`;
+  const style = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start';
+  return `<div class="fs-pair" style="${style}">${code}${svg}</div>`;
 }
 
 /**
@@ -163,7 +192,8 @@ export function inlineDiagrams(markdown: string, opts: Options = {}): string {
       // "그림: " 접두어가 붙어 캡션이 줄 맨 앞에 오지 않으므로, 캡션 앞머리의
       // `#`/`-` 같은 마크다운 특수문자가 헤딩·리스트로 오작동할 일이 없다 —
       // 그래서 이스케이프를 안 한다(강조 마크업은 오히려 의도한 대로 쓰게 둔다).
-      out.push(r.caption ? `${r.svg}\n\n그림: ${r.caption}` : r.svg);
+      const rendered = SOURCE_DIRECTIVE.test(body) ? sourcePair(body, r.svg) : r.svg;
+      out.push(r.caption ? `${rendered}\n\n그림: ${r.caption}` : rendered);
     }
     i = j + 1;
   }

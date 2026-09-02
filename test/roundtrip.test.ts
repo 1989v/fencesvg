@@ -239,3 +239,46 @@ describe('축소 하한과 가로 스크롤이 발행 경로를 지난다', () =
     expect(floor).toBe(Math.round(w * 0.85));
   });
 });
+
+describe('`%% source` 는 원문과 그림을 나란히 낸다', () => {
+  const md = `앞 문장.
+
+\`\`\`mermaid
+%% caption: 주문은 결제 뒤에 재고를 잡는다
+%% source
+flowchart LR
+  A[주문] --> B[결제]
+\`\`\`
+
+뒤 문장.`;
+  const inlined = inlineDiagrams(md);
+  const html = publish(inlined);
+
+  it('두 칸 격자로 감싼다', () => {
+    expect(html).toMatch(/<div class="fs-pair"[^>]*grid-template-columns/);
+  });
+
+  it('원문을 코드 블록으로 함께 낸다', () => {
+    expect(html).toContain('<code class="language-mermaid">');
+    expect(html).toContain('flowchart LR');
+  });
+
+  it('지시문 두 줄은 원문에서 뺀다 — 베껴 갈 것은 다이어그램 문법이다', () => {
+    expect(html).not.toContain('%% caption:');
+    expect(html).not.toContain('%% source');
+  });
+
+  it('그림도 같이 나온다', () => {
+    expect((html.match(/<svg/g) ?? []).length).toBe(1);
+  });
+
+  it('HTML 블록 안에 빈 줄이 없다 — CommonMark 가 거기서 블록을 끊는다', () => {
+    const block = inlined.split('\n\n그림')[0]!.split('앞 문장.\n\n')[1]!;
+    expect(block.split('\n').filter((l) => l.trim() === '')).toEqual([]);
+  });
+
+  it('`%% source` 가 없으면 예전처럼 그림만 낸다', () => {
+    const plain = publish(inlineDiagrams('%% caption: c\n\n```mermaid\n%% caption: c\nflowchart LR\n A --> B\n```'));
+    expect(plain).not.toContain('fs-pair');
+  });
+});
