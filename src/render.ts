@@ -54,7 +54,22 @@ function sourcePair(body: string, svg: string): string {
     .join('\n')
     .trim();
   const code = `<pre><code class="language-mermaid">${escapeHtml(shown)}</code></pre>`;
-  const style = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start';
+  // 그림 쪽에 더 준다(2:3). 반반으로 나누면 가로로 긴 다이어그램이 좁은
+  // 칸에서 바로 잘려 스크롤한다.
+  //
+  // `min(45%, max-content)` 같은 표현은 쓸 수 없다 — `min()` 은 내재 크기
+  // 키워드를 못 받아 선언째로 버려지고, 격자가 한 칸이 된다(실측).
+  // `minmax(0,…)` 은 필요하다. 없으면 칸의 기본 최소 폭이 `auto` 라
+  // 안쪽 `pre` 가 칸을 밀어낸다.
+  //
+  // 좁은 화면에서 한 칸으로 쌓는 것은 인라인 스타일로 못 한다(미디어 쿼리
+  // 불가). `fs-pair` 클래스를 붙여 두었으니 사이트가 그 지점을 정한다.
+  const style = [
+    'display:grid',
+    'grid-template-columns:minmax(0,2fr) minmax(0,3fr)',
+    'gap:20px',
+    'align-items:start',
+  ].join(';');
   return `<div class="fs-pair" style="${style}">${code}${svg}</div>`;
 }
 
