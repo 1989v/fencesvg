@@ -22,7 +22,9 @@ const CAPTION = /^\s*%%\s*caption:\s*(.+)$/m;
 // `%% source` 한 줄이 있으면 원문과 그림을 나란히 낸다. mermaid 주석이라
 // 다른 렌더러에서는 그냥 무시된다 — 정보 문자열을 건드리면 그쪽에서 태그가
 // 깨진다.
-const SOURCE_DIRECTIVE = /^\s*%%\s*source\s*$/m;
+const SOURCE_DIRECTIVE = /^\s*%%\s*source\s*(?::\s*(.+?))?\s*$/m;
+/** 접이식 요약줄의 기본 문구. `%% source: 원문 보기` 로 바꿀 수 있다. */
+const SOURCE_LABEL = 'mermaid';
 // 펜스 여는 줄: 들여쓰기(리스트 항목 지원) + 백틱 3개 이상 또는 물결 3개
 // 이상 + 나머지 정보 문자열. 언어 태그가 뭐든(`mermaid` 가 아니어도) 일단
 // "펜스가 열렸다"로만 본다 — 실제로 변환할지는 정보 문자열이 `mermaid`/
@@ -38,48 +40,33 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * 원문과 그림을 나란히 낸다.
+ * 그림 아래에 원문을 접어 둔다.
  *
- * 두 칸은 `auto-fit` 격자다 — 미디어 쿼리를 못 쓰는 인라인 스타일에서
- * 좁은 화면 대응을 하는 유일한 방법이고, 컨테이너가 두 칸을 못 담으면
- * 알아서 한 칸으로 쌓인다.
+ * 나란히 두면 그림 칸이 좁아 가로로 긴 다이어그램이 바로 잘린다. 읽는 대상은
+ * 그림이고 원문은 참조라, 그림에 전폭을 주고 원문은 필요할 때만 편다.
  *
- * 지시문 두 줄(`%% caption:`·`%% source`)은 원문에서 뺀다. 읽는 사람이
- * 베껴 갈 것은 다이어그램 문법이지 이 라이브러리의 지시문이 아니다.
+ * 지시문 두 줄(`%% caption:`·`%% source`)은 원문에서 뺀다. 베껴 갈 것은
+ * 다이어그램 문법이지 이 라이브러리의 지시문이 아니다.
  */
-function sourcePair(body: string, svg: string): string {
+function withSource(body: string, svg: string): string {
   const shown = body
     .split('\n')
     .filter((l) => !CAPTION.test(l) && !SOURCE_DIRECTIVE.test(l))
     .join('\n')
     .trim();
+  const label = escapeHtml(SOURCE_DIRECTIVE.exec(body)?.[1]?.trim() || SOURCE_LABEL);
   const code = `<pre><code class="language-mermaid">${escapeHtml(shown)}</code></pre>`;
-  // 그림 쪽에 더 준다(2:3). 반반으로 나누면 가로로 긴 다이어그램이 좁은
-  // 칸에서 바로 잘려 스크롤한다.
-  //
-  // `min(45%, max-content)` 같은 표현은 쓸 수 없다 — `min()` 은 내재 크기
-  // 키워드를 못 받아 선언째로 버려지고, 격자가 한 칸이 된다(실측).
-  // `minmax(0,…)` 은 필요하다. 없으면 칸의 기본 최소 폭이 `auto` 라
-  // 안쪽 `pre` 가 칸을 밀어낸다.
-  //
-  // 좁은 화면에서 한 칸으로 쌓는 것은 인라인 스타일로 못 한다(미디어 쿼리
-  // 불가). `fs-pair` 클래스를 붙여 두었으니 사이트가 그 지점을 정한다.
-  const style = [
-    'display:grid',
-    'grid-template-columns:minmax(0,2fr) minmax(0,3fr)',
-    'gap:20px',
-    'align-items:start',
-  ].join(';');
-  return `<div class="fs-pair" style="${style}">${code}${svg}</div>`;
+  // `cursor:pointer` 만 인라인으로 준다 — 기본 마커·여백은 브라우저 기본값이
+  // 이미 쓸 만하고, 더 손대려면 사이트가 `fs-source` 로 잡는다.
+  const details = `<details class="fs-source"><summary style="cursor:pointer">${label}</summary>${code}</details>`;
+  return `<div class="fs-figure">${svg}${details}</div>`;
 }
 
 /**
  * `parseFlowchart` 는 자기 앞의 빈 줄만 건너뛰고 첫 줄이 `flowchart` 로
  * 시작하는지를 본다 — 몸통 안의 `%%` 주석은 건너뛰지만 맨 앞 줄이 주석이면
  * "flowchart 선언으로 시작하지 않는다" 로 잘못 튕긴다. `%% caption:` 은
- * 관례상 맨 앞줄에 오므로(브리프 예시·아래 테스트) 여기서 미리 걷어내
- * parseFlowchart 가 실제 선언 줄부터 보게 한다 — parseFlowchart 자체는
- * 이미 검증된 것이라 손대지 않는다.
+ * 관례상 맨 앞줄에 오므로 여기서 미리 걷어내 파서가 실제 선언 줄부터 보게 한다.
  */
 function stripLeadingComments(source: string): string {
   const lines = source.split('\n');
@@ -207,7 +194,7 @@ export function inlineDiagrams(markdown: string, opts: Options = {}): string {
       // "그림: " 접두어가 붙어 캡션이 줄 맨 앞에 오지 않으므로, 캡션 앞머리의
       // `#`/`-` 같은 마크다운 특수문자가 헤딩·리스트로 오작동할 일이 없다 —
       // 그래서 이스케이프를 안 한다(강조 마크업은 오히려 의도한 대로 쓰게 둔다).
-      const rendered = SOURCE_DIRECTIVE.test(body) ? sourcePair(body, r.svg) : r.svg;
+      const rendered = SOURCE_DIRECTIVE.test(body) ? withSource(body, r.svg) : r.svg;
       out.push(r.caption ? `${rendered}\n\n그림: ${r.caption}` : rendered);
     }
     i = j + 1;

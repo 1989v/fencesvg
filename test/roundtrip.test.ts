@@ -240,7 +240,7 @@ describe('축소 하한과 가로 스크롤이 발행 경로를 지난다', () =
   });
 });
 
-describe('`%% source` 는 원문과 그림을 나란히 낸다', () => {
+describe('`%% source` 는 그림 아래에 원문을 접어 둔다', () => {
   const md = `앞 문장.
 
 \`\`\`mermaid
@@ -254,8 +254,16 @@ flowchart LR
   const inlined = inlineDiagrams(md);
   const html = publish(inlined);
 
-  it('두 칸 격자로 감싼다', () => {
-    expect(html).toMatch(/<div class="fs-pair"[^>]*grid-template-columns/);
+  it('그림이 먼저, 원문은 접이식으로 뒤에 온다', () => {
+    expect(html).toContain('<div class="fs-figure">');
+    expect(html).toContain('<details class="fs-source">');
+    // 나란히 두면 그림 칸이 좁아 가로로 긴 다이어그램이 바로 잘린다.
+    expect(html.indexOf('<svg')).toBeLessThan(html.indexOf('<details'));
+  });
+
+  it('요약줄 문구를 바꿀 수 있다', () => {
+    const custom = publish(inlineDiagrams('```mermaid\n%% caption: c\n%% source: 원문 보기\nflowchart LR\n A --> B\n```'));
+    expect(custom).toContain('>원문 보기</summary>');
   });
 
   it('원문을 코드 블록으로 함께 낸다', () => {
@@ -279,6 +287,7 @@ flowchart LR
 
   it('`%% source` 가 없으면 예전처럼 그림만 낸다', () => {
     const plain = publish(inlineDiagrams('%% caption: c\n\n```mermaid\n%% caption: c\nflowchart LR\n A --> B\n```'));
-    expect(plain).not.toContain('fs-pair');
+    expect(plain).not.toContain('fs-figure');
+    expect(plain).not.toContain('<details');
   });
 });
