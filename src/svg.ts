@@ -1,3 +1,4 @@
+import { splitLines, LINE_HEIGHT } from './text';
 /**
  * 발행 경로가 지우는 태그. 검사로 잡는 대신 **낼 수 없게** 한다 —
  * `el()` 과 `svgRoot()` 이 런타임에 던진다.
@@ -29,8 +30,24 @@ export function el(tag: string, a: Attrs, children?: string[]): string {
   return `<${tag}${attrs(a)}>${children.join('')}</${tag}>`;
 }
 
+/**
+ * 글자 요소. 여러 줄이면 `<tspan>` 으로 나눈다.
+ *
+ * `y` 는 한 줄일 때의 기준선이다. 여러 줄이면 첫 줄을 그만큼 위로 올려
+ * 전체 블록이 같은 자리에 가운데 정렬된다 — 호출하는 쪽은 줄 수를 몰라도
+ * 한 줄일 때와 같은 `y` 를 넘기면 된다. 한 줄일 때의 출력은 전과 같다.
+ */
 export function text(content: string, a: Attrs): string {
-  return `<text${attrs(a)}>${escapeXml(content)}</text>`;
+  const lines = splitLines(content);
+  if (lines.length <= 1) return `<text${attrs(a)}>${escapeXml(content)}</text>`;
+  const fontSize = Number(a['font-size'] ?? 12);
+  const lh = fontSize * LINE_HEIGHT;
+  const x = a.x;
+  const spans = lines.map((line, i) => {
+    const dy = i === 0 ? -((lines.length - 1) / 2) * lh : lh;
+    return `<tspan x="${x}" dy="${Math.round(dy * 100) / 100}">${escapeXml(line)}</tspan>`;
+  });
+  return `<text${attrs(a)}>${spans.join('')}</text>`;
 }
 
 export type Pt = { x: number; y: number };

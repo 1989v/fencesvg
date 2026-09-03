@@ -3,7 +3,7 @@ import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
-import { measureText } from '../text';
+import { measureText, extraLineHeight } from '../text';
 import { arrowMarker } from './flowchart';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
@@ -20,7 +20,7 @@ export function drawState(model: FlowModel, theme: Theme, idPrefix: string, labe
   const isTerminal = (id: string) => id.startsWith('__t');
   const nodes: GraphNode[] = model.nodes.map((n) => isTerminal(n.id)
     ? { id: n.id, w: TERMINAL, h: TERMINAL }
-    : { id: n.id, w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2), h: m.pillH });
+    : { id: n.id, w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2), h: m.pillH + extraLineHeight(n.label, theme.fontSize) });
 
   // 같은 그룹끼리 층 안에서 붙여 놓는다 — 테두리가 남의 노드를 안 삼키도록.
   const groupOf = new Map<string, number>();

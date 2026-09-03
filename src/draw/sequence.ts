@@ -143,7 +143,7 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
   });
   for (const a of model.actors) {
     const cx = lay.x.get(a)!;
-    const w = measureText(a, theme.fontSize) + m.padX * 2;
+    const w = measureText(model.labels.get(a) ?? a, theme.fontSize) + m.padX * 2;
     bbox.box({ minX: cx - w / 2, maxX: cx + w / 2, minY: 0, maxY: lay.headH - m.memberInset });
   }
   // 프레임 테두리는 참가자 열 바깥으로 padX 만큼 나간다 — 미리 재 둔다.
@@ -285,13 +285,13 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
   // 참가자 상자를 마지막에 — 생명선 위를 덮는다. 노드 채움을 줘 배경에서 뜨게 한다.
   for (const a of model.actors) {
     const cx = sx(lay.x.get(a)!);
-    const w = measureText(a, theme.fontSize) + m.padX * 2;
+    const w = measureText(model.labels.get(a) ?? a, theme.fontSize) + m.padX * 2;
     const box = snapBox({ x: cx - w / 2, y: sy(0), w, h: lay.headH - 8 });
     body.push(el('rect', {
       x: box.x, y: box.y, width: box.w, height: box.h, rx: theme.radius,
       fill: theme.nodeFillAlt, stroke: theme.nodeBorder, 'stroke-width': 1,
     }));
-    body.push(text(a, {
+    body.push(text(model.labels.get(a) ?? a, {
       x: cx, y: sy((lay.headH - m.memberInset) / 2 + theme.fontSize / 3),
       'text-anchor': 'middle', fill: theme.ink, 'font-size': theme.fontSize, 'font-weight': WEIGHT.label,
     }));

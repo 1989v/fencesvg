@@ -38,7 +38,7 @@ export function layoutSequence(model: SeqModel, theme: Theme) {
   // 열 폭에 간격을 실어 두면 두 중심 사이 거리가 (b1+b2)/2 + gap 이 되어
   // 테두리 사이가 정확히 gap 만큼 벌어진다.
   const widest = new Map<string, number>(
-    model.actors.map((a) => [a, measureText(a, theme.fontSize) + m.padX * 2 + m.gap.node]),
+    model.actors.map((a) => [a, measureText(model.labels.get(a) ?? a, theme.fontSize) + m.padX * 2 + m.gap.node]),
   );
   for (const s of visibleSteps(model)) {
     if (s.t === 'note') {

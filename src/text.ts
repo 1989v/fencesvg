@@ -24,9 +24,32 @@ function classOf(cp: number): keyof typeof EM {
   return 'other';
 }
 
-/** 라벨의 렌더 폭 추정(px). 상자 크기를 정하는 데만 쓴다 — 픽셀 정확도가 필요하지 않다. */
-export function measureText(text: string, fontSize: number): number {
+/** 줄 높이(em). 라벨 안에서 줄을 나눌 때 쓴다. */
+export const LINE_HEIGHT = 1.25;
+
+/**
+ * 라벨을 줄로 나눈다. mermaid 는 `<br>` 로 줄을 바꾼다 — `<br/>` · `<br />` ·
+ * 대소문자도 받고, 실제 개행도 같은 뜻으로 본다.
+ */
+export function splitLines(text: string): string[] {
+  return text.split(/<br\s*\/?>|\n/i).map((l) => l.trim());
+}
+
+function measureLine(line: string, fontSize: number): number {
   let em = 0;
-  for (const ch of text) em += EM[classOf(ch.codePointAt(0)!)];
+  for (const ch of line) em += EM[classOf(ch.codePointAt(0)!)];
   return em * fontSize;
+}
+
+/**
+ * 라벨의 렌더 폭 추정(px). 상자 크기를 정하는 데만 쓴다 — 픽셀 정확도가 필요하지 않다.
+ * 여러 줄이면 **가장 긴 줄**의 폭이다. 호출하는 쪽은 줄 수를 몰라도 된다.
+ */
+export function measureText(text: string, fontSize: number): number {
+  return Math.max(...splitLines(text).map((l) => measureLine(l, fontSize)));
+}
+
+/** 여러 줄 라벨이 한 줄보다 더 차지하는 세로 높이(px). 한 줄이면 0. */
+export function extraLineHeight(text: string, fontSize: number): number {
+  return (splitLines(text).length - 1) * fontSize * LINE_HEIGHT;
 }

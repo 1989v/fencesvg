@@ -19,7 +19,8 @@ export type SeqStep =
   | { t: 'frameElse'; label: string }
   | { t: 'frameClose' };
 
-export type SeqModel = { kind: 'sequence'; actors: string[]; steps: SeqStep[]; autonumber: boolean };
+/** `labels` 는 `participant A as 표시명` 의 표시명. 없으면 id 가 곧 표시명이다. */
+export type SeqModel = { kind: 'sequence'; actors: string[]; labels: Map<string, string>; steps: SeqStep[]; autonumber: boolean };
 
 // A->>B: label · A-->>B: label — id 는 유니코드 문자/숫자/밑줄만 허용한다
 // (flowchart 의 NODE 규칙과 동일, 하이픈은 화살표와 헷갈려 제외). 화살표
@@ -42,6 +43,7 @@ export function parseSequence(src: string): SeqModel | ParseError {
   if (!/^sequenceDiagram\b/.test(lines[0] ?? '')) return { error: 'sequenceDiagram 선언으로 시작하지 않는다' };
 
   const actors: string[] = [];
+  const labels = new Map<string, string>();
   const steps: SeqStep[] = [];
   let autonumber = false;
   let counter = 0;
@@ -82,8 +84,14 @@ export function parseSequence(src: string): SeqModel | ParseError {
       continue;
     }
 
-    const p = /^(?:participant|actor)\s+(.+)$/.exec(line);
-    if (p) { see(p[1]!.trim()); continue; }
+    // `participant A as 주문<br>서비스` — 메시지는 id 로 쓰고 화면에는 표시명이 나온다.
+    const p = /^(?:participant|actor)\s+([\p{L}\p{N}_]+)(?:\s+as\s+(.+))?$/u.exec(line);
+    if (p) {
+      const id = p[1]!;
+      see(id);
+      if (p[2]) labels.set(id, p[2].trim());
+      continue;
+    }
 
     const n = NOTE.exec(line);
     if (n) {
@@ -109,5 +117,5 @@ export function parseSequence(src: string): SeqModel | ParseError {
 
   if (depth > 0) return { error: '닫히지 않은 블록이 있다' };
   if (actors.length === 0) return { error: '참가자가 없다' };
-  return { kind: 'sequence', actors, steps, autonumber };
+  return { kind: 'sequence', actors, labels, steps, autonumber };
 }

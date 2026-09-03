@@ -3,7 +3,7 @@ import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
-import { measureText } from '../text';
+import { measureText, extraLineHeight } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
 import { framesFor, drawFrames, widenForLabel } from './group';
@@ -165,7 +165,8 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
     // 20자 안팎의 실사용 라벨은 여유 있게 들어간다 — 이 배율을 늘리는 건
     // 다음 태스크가 필요할 때 판단.
     w: Math.max(m.minW, measureText(n.label, theme.fontSize) + m.padX * 2) * (n.shape === 'diamond' ? 1.4 : 1),
-    h: m.nodeH,
+    // 여러 줄 라벨(`<br>`)이면 그만큼 키운다.
+    h: m.nodeH + extraLineHeight(n.label, theme.fontSize),
   }));
   // 같은 그룹끼리 층 안에서 붙여 놓는다 — 테두리가 남의 노드를 안 삼키도록.
   const groupOf = new Map<string, number>();

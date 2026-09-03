@@ -3,7 +3,7 @@ import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
 import { entryOffsetFor, routeEdge, type Point } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
-import { measureText } from '../text';
+import { measureText, extraLineHeight } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
 import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
@@ -80,7 +80,8 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
       id: e.id,
       // 속성이 있으면 이름 칸 + 속성 행. 없으면 예전처럼 한 칸짜리 상자다.
       w: Math.max(Math.round(m.minW * 1.22), widest + m.padX * 2),
-      h: e.attrs.length === 0 ? m.nodeH : m.headH + e.attrs.length * m.rowH + Math.round(theme.fontSize / 1.5),
+      h: (e.attrs.length === 0 ? m.nodeH : m.headH + e.attrs.length * m.rowH + Math.round(theme.fontSize / 1.5))
+        + extraLineHeight(e.id, theme.fontSize),
     };
   });
   const edges = model.rels.map((r) => ({ from: r.from, to: r.to }));

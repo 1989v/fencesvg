@@ -1,5 +1,5 @@
 import { el, text, type Pt } from '../svg';
-import { measureText } from '../text';
+import { measureText, extraLineHeight } from '../text';
 import { WEIGHT, type Theme } from './theme';
 import type { Box } from './bbox';
 
@@ -59,11 +59,13 @@ export function labelChipBox(
   const fontSize = theme.labelSize;
   const baseline = lineY - GAP;
   const w = measureText(label, fontSize);
+  // 여러 줄이면 첫 줄이 위로, 마지막 줄이 아래로 반씩 벌어진다(`text()` 의 정렬).
+  const half = extraLineHeight(label, fontSize) / 2;
   return {
     minX: anchor === 'middle' ? x - w / 2 - PAD_X : x - PAD_X,
     maxX: anchor === 'middle' ? x + w / 2 + PAD_X : x + w + PAD_X,
-    minY: baseline - fontSize * 0.8 - PAD_Y,
-    maxY: baseline + fontSize * 0.25 + PAD_Y,
+    minY: baseline - fontSize * 0.8 - PAD_Y - half,
+    maxY: baseline + fontSize * 0.25 + PAD_Y + half,
   };
 }
 
