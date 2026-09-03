@@ -83,6 +83,21 @@ describe('여러 줄 라벨이 그려진다', () => {
     expect(svg).toContain('>서비스</tspan>');
   });
 
+  it('두 줄 참가자 이름이 상자 안에 들어간다 — 머리 높이가 같이 자란다', () => {
+    // 라이브에서 잡힌 것: 노드는 키웠는데 순차도 참가자 상자는 고정이라 두 줄 이름이 넘쳤다.
+    const svg = renderDiagram('%% caption: x\nsequenceDiagram\n  participant A as 주문<br>서비스\n  participant B\n  A->>B: x').svg!;
+    const box = /<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*rx="(?!3")/.exec(svg)!.slice(1).map(Number) as number[];
+    const t = /<text x="([\d.]+)" y="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/.exec(svg)!;
+    let y = Number(t[2]);
+    const ys = [...t[3]!.matchAll(/dy="([-\d.]+)"/g)].map((d) => (y += Number(d[1])));
+    expect(ys).toHaveLength(2);
+    // 글리프는 기준선 위 0.8em, 아래 0.25em(하강부)까지 차지한다. 하강부를 빼면
+    // 12px 에서 두 줄이 아슬아슬하게 들어가 이 검사가 회귀를 못 잡는다(실제로 그랬다).
+    const fs = 12;
+    expect(Math.min(...ys) - fs * 0.8, '위로 넘침').toBeGreaterThanOrEqual(box[1]!);
+    expect(Math.max(...ys) + fs * 0.25, '아래로 넘침').toBeLessThanOrEqual(box[1]! + box[3]!);
+  });
+
   it('한 줄 라벨의 출력은 tspan 없이 전과 같다', () => {
     const svg = renderDiagram('%% caption: x\nflowchart LR\n  A[한 줄] --> B').svg!;
     expect(svg).not.toContain('<tspan');

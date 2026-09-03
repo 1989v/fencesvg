@@ -1,6 +1,6 @@
 {
   "name": "fencesvg",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Render mermaid-syntax fences as SVG that adopts your site's palette and survives your markdown sanitizer. Zero dependencies.",
   "keywords": [
     "mermaid",

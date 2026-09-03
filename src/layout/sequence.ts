@@ -1,6 +1,6 @@
 import type { SeqModel, SeqStep } from '../parse/sequence';
 import type { Theme } from '../draw/theme';
-import { measureText } from '../text';
+import { measureText, extraLineHeight } from '../text';
 
 /**
  * 행을 차지하는 단계만.
@@ -32,7 +32,11 @@ import { metrics } from '../draw/theme';
  */
 export function layoutSequence(model: SeqModel, theme: Theme) {
   const m = metrics(theme);
-  const HEAD_H = m.seqHeadH, ROW_H = m.seqRowH, TOP_GAP = m.seqTopGap, MIN_COL = m.seqMinCol;
+  // 참가자 이름이 여러 줄이면(`participant A as 주문<br>서비스`) 머리 높이가
+  // 가장 긴 이름만큼 자란다. 상자 하나만 키우면 나머지와 높이가 어긋나므로
+  // 전부 같은 높이로 맞춘다.
+  const extraHead = Math.max(0, ...model.actors.map((a) => extraLineHeight(model.labels.get(a) ?? a, theme.fontSize)));
+  const HEAD_H = m.seqHeadH + extraHead, ROW_H = m.seqRowH, TOP_GAP = m.seqTopGap, MIN_COL = m.seqMinCol;
   // 열 너비에 노드 간격을 더한다. 안 더하면 열 폭이 곧 상자 폭이라 이웃한
   // 두 상자가 맞닿는다 — 실측에서 참가자 상자 사이가 8px 까지 좁아졌다.
   // 열 폭에 간격을 실어 두면 두 중심 사이 거리가 (b1+b2)/2 + gap 이 되어
