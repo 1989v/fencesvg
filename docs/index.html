@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fencesvg — type mermaid, get SVG</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --paper: #fbfaf7; --ink: #1a1a1c; --ink-2: #55555a; --line: rgb(26 26 28 / .14);
+      --panel: #f2f0ea; --accent: #2e7d32; --warn: #a2231d;
+      /* fencesvg reads these thirteen — leave one out and that part falls back to the library's own value,
+         which is how a dark page ends up with one stubbornly light box */
+      --fs-ink: #1a1a1c; --fs-muted: #6b6b71; --fs-line: #55555a; --fs-line-faint: rgb(26 26 28 / .22);
+      --fs-node-fill: #ffffff; --fs-node-fill-alt: #f2f0ea; --fs-node-fill-strong: #e7e4dc;
+      --fs-node-border: #b9b4a8; --fs-label: #3a3a3f; --fs-label-chip: #fbfaf7;
+      --fs-accent: #2e7d32; --fs-accent-fill: #dceadd; --fs-radius: 6px;
+    }
+    :root[data-look="dark"] {
+      --paper: #0e0e10; --ink: #e9e6e0; --ink-2: #a8a49c; --line: rgb(233 230 224 / .16);
+      --panel: #17171a; --accent: #7fc08a; --warn: #e0806f;
+      --fs-ink: #e9e6e0; --fs-muted: #a8a49c; --fs-line: #a8a49c; --fs-line-faint: rgb(233 230 224 / .22);
+      --fs-node-fill: #202024; --fs-node-fill-alt: #26262b; --fs-node-fill-strong: #2f2f35;
+      --fs-node-border: #4a4a52; --fs-label: #cfcbc4; --fs-label-chip: #17171a;
+      --fs-accent: #7fc08a; --fs-accent-fill: #24382a; --fs-radius: 6px;
+    }
+    :root[data-look="blueprint"] {
+      --paper: #0d1b2a; --ink: #dbe9f7; --ink-2: #9fb8d0; --line: rgb(219 233 247 / .2);
+      --panel: #12253a; --accent: #6fd3ff; --warn: #ffb4a2;
+      --fs-ink: #dbe9f7; --fs-muted: #9fb8d0; --fs-line: #6fd3ff; --fs-line-faint: rgb(111 211 255 / .28);
+      --fs-node-fill: #0d1b2a; --fs-node-fill-alt: #12253a; --fs-node-fill-strong: #17324e;
+      --fs-node-border: #3f6f9c; --fs-label: #bcd6ef; --fs-label-chip: #0d1b2a;
+      --fs-accent: #6fd3ff; --fs-accent-fill: #10334a; --fs-radius: 0px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink);
+           font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    .wrap { max-width: 1060px; margin: 0 auto; padding: 26px 20px 64px; }
+    .mono, button, .tag, code, textarea, .warn li { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .eyebrow { font-family: ui-monospace, monospace; font-size: .6875rem; letter-spacing: .14em;
+               color: var(--accent); text-transform: uppercase; }
+    h1 { font-size: 1.6rem; letter-spacing: -.02em; margin: 6px 0 8px; text-wrap: balance; }
+    .lede { color: var(--ink-2); max-width: 66ch; margin: 0 0 22px; }
+    a { color: var(--accent); }
+
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+    .bar .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+    button { font: 600 .8125rem ui-monospace, monospace; color: var(--ink); background: transparent;
+             border: 1px solid var(--line); border-radius: 4px; padding: 8px 12px; min-height: 38px; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 880px) { .cols { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
+    .box { border: 1px solid var(--line); border-radius: 0 10px 0 10px; background: var(--panel); overflow: hidden; }
+    .box > header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+                    padding: 9px 13px; border-bottom: 1px solid var(--line); }
+    .box h2 { font-size: .875rem; margin: 0; }
+    .tag { font-size: .6875rem; color: var(--ink-2); }
+    textarea { width: 100%; min-height: 340px; border: 0; padding: 14px; resize: vertical;
+               background: transparent; color: var(--ink); font-size: .8125rem; line-height: 1.7; }
+    textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .out { padding: 18px 14px; min-height: 340px; display: grid; place-items: center; overflow-x: auto; }
+    .out svg { max-width: 100%; height: auto; }
+    figcaption { padding: 0 14px 12px; color: var(--ink-2); font-size: .8125rem; text-align: center; }
+    .warn { margin: 0; padding: 10px 14px; border-top: 1px solid var(--line); list-style: none; }
+    .warn li { font-size: .75rem; color: var(--warn); }
+    .warn li::before { content: "! "; }
+    .empty { color: var(--ink-2); font-size: .8125rem; }
+
+    .foot { margin-top: 26px; color: var(--ink-2); font-size: .8125rem; }
+    pre { background: var(--panel); border: 1px solid var(--line); border-radius: 0 8px 0 8px;
+          padding: 12px 14px; overflow-x: auto; font-size: .8125rem; margin: 18px 0 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="eyebrow">fencesvg</span>
+    <h1>Type mermaid, get SVG</h1>
+    <p class="lede">
+      Five diagram types, no runtime dependencies, and no canvas — the output is plain SVG whose every colour and
+      radius is a <code>var(--fs-…)</code> reference. Switch the look below and the diagram follows without being
+      redrawn: it wears your palette instead of bringing its own.
+    </p>
+
+    <div class="bar">
+      <button data-sample="flowchart" type="button" aria-pressed="true">flowchart</button>
+      <button data-sample="sequence" type="button" aria-pressed="false">sequence</button>
+      <button data-sample="er" type="button" aria-pressed="false">ER</button>
+      <button data-sample="state" type="button" aria-pressed="false">state</button>
+      <button data-sample="class" type="button" aria-pressed="false">class</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button data-look="light" type="button" aria-pressed="true">paper</button>
+      <button data-look="dark" type="button" aria-pressed="false">ink</button>
+      <button data-look="blueprint" type="button" aria-pressed="false">blueprint</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button id="copy" type="button">copy SVG</button>
+    </div>
+
+    <div class="cols">
+      <section class="box">
+        <header><h2>source</h2><span class="tag">mermaid syntax</span></header>
+        <textarea id="src" spellcheck="false" aria-label="mermaid source"></textarea>
+      </section>
+      <section class="box">
+        <header><h2>output</h2><span class="tag" id="size">—</span></header>
+        <figure style="margin:0">
+          <div class="out" id="out"></div>
+          <figcaption id="cap"></figcaption>
+        </figure>
+        <ul class="warn" id="warn"></ul>
+      </section>
+    </div>
+
+    <pre id="code">import { renderDiagram } from 'fencesvg';
+
+const { svg, caption, warnings } = renderDiagram(source);
+
+/* The page owns the colours:
+   :root { --fs-ink: …; --fs-line: …; --fs-node-fill: …; --fs-accent: …; }
+   Pass { accent } instead and it becomes the fallback for pages that define none. */</pre>
+
+    <p class="foot">
+      <code>npm i fencesvg</code> · <a href="https://github.com/1989v/fencesvg">GitHub</a> ·
+      <a href="https://www.npmjs.com/package/fencesvg">npm</a><br>
+      The caption line (<code>%% caption:</code>) becomes the SVG's accessible name, the fallback text, and the
+      markdown caption underneath — leave it out and the library says so rather than drawing something nameless.
+    </p>
+  </div>
+
+  <script type="module">
+    import { renderDiagram } from './lib/index.js';
+
+    const SAMPLES = {
+      flowchart: `%% caption: Order flow
+flowchart LR
+  A[Order] --> B{In stock?}
+  B -- yes --> C[Charge]
+  B -- no --> D[Backorder]
+  C --> E[Ship]
+  class C emphasis`,
+      sequence: `%% caption: Sign-in
+sequenceDiagram
+  participant U as Visitor
+  participant G as Gateway
+  participant A as Auth
+  U->>G: sign in
+  G->>A: verify token
+  A-->>G: subject
+  G-->>U: set cookie`,
+      er: `%% caption: Order schema
+erDiagram
+  MEMBER ||--o{ ORDER : places
+  ORDER ||--|{ ORDER_ITEM : contains
+  PRODUCT ||--o{ ORDER_ITEM : listed`,
+      state: `%% caption: Publishing states
+stateDiagram-v2
+  [*] --> DRAFT
+  DRAFT --> REVIEW
+  REVIEW --> BETA
+  BETA --> PUBLISHED
+  PUBLISHED --> [*]`,
+      class: `%% caption: Dispenser shape
+classDiagram
+  class Dispenser {
+    +setAngle(deg)
+    +spinTo(index)
+    +destroy()
+  }
+  class Card
+  Dispenser --> Card`,
+    };
+
+    const src = document.getElementById('src');
+    const out = document.getElementById('out');
+    const cap = document.getElementById('cap');
+    const warn = document.getElementById('warn');
+    const size = document.getElementById('size');
+    let current = null;
+
+    const draw = () => {
+      const { svg, caption, warnings } = renderDiagram(src.value);
+      current = svg;
+      out.innerHTML = svg ?? '<p class="empty">nothing to draw yet — the first line after the caption names the diagram type</p>';
+      cap.textContent = caption ?? '';
+      warn.innerHTML = warnings.map((w) => `<li>${w.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</li>`).join('');
+      size.textContent = svg ? `${(svg.length / 1024).toFixed(1)} kB of SVG` : 'no output';
+    };
+
+    src.addEventListener('input', draw);
+    for (const btn of document.querySelectorAll('[data-sample]')) {
+      btn.addEventListener('click', () => {
+        for (const b of document.querySelectorAll('[data-sample]')) b.setAttribute('aria-pressed', String(b === btn));
+        src.value = SAMPLES[btn.dataset.sample];
+        draw();
+      });
+    }
+    for (const btn of document.querySelectorAll('[data-look]')) {
+      btn.addEventListener('click', () => {
+        for (const b of document.querySelectorAll('[data-look]')) b.setAttribute('aria-pressed', String(b === btn));
+        document.documentElement.dataset.look = btn.dataset.look; // 다시 그리지 않는다 — CSS 가 색을 바꾼다
+      });
+    }
+    document.getElementById('copy').addEventListener('click', async (e) => {
+      if (!current) return;
+      try {
+        await navigator.clipboard.writeText(current);
+        const b = e.currentTarget;
+        const was = b.textContent;
+        b.textContent = 'copied';
+        setTimeout(() => { b.textContent = was; }, 1200);
+      } catch { /* clipboard blocked — the SVG is still in the output pane */ }
+    });
+
+    src.value = SAMPLES.flowchart;
+    document.documentElement.dataset.look = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    for (const b of document.querySelectorAll('[data-look]')) {
+      b.setAttribute('aria-pressed', String(b.dataset.look === document.documentElement.dataset.look));
+    }
+    draw();
+  </script>
+</body>
+</html>

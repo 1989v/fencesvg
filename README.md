@@ -2,6 +2,8 @@
 
 **Language:** [English](README.md) | [한국어](README.ko.md)
 
+**[Try it in the browser](https://1989v.github.io/fencesvg/)** — type mermaid on the left, get SVG on the right, and switch the page look to watch the same markup take a different palette.
+
 > Render mermaid-syntax fences as SVG that adopts your site's palette and survives your markdown sanitizer.
 
 [![npm](https://img.shields.io/npm/v/fencesvg.svg)](https://www.npmjs.com/package/fencesvg)

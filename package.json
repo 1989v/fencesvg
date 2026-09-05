@@ -40,7 +40,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --minify",
+    "build": "tsup src/index.ts --format esm,cjs --dts --minify && mkdir -p docs/lib && cp dist/index.js docs/lib/",
     "test": "vitest run",
     "size": "node scripts/size.mjs",
     "no-deps": "node scripts/no-deps.mjs",
@@ -55,6 +55,5 @@
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
-  "dependencies": {},
   "sideEffects": false
 }
