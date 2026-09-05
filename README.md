@@ -338,6 +338,12 @@ belongs to a group it doesn't is worse than no frame.
 Unreadable syntax never throws: the fence stays a code block and the reason lands in
 `warnings`.
 
+## Demo page
+
+The playground at [1989v.github.io/fencesvg](https://1989v.github.io/fencesvg/) is this repository's `docs/` folder, served by GitHub
+Pages from `main`. It loads `docs/lib/index.js`, which `npm run build` copies out of `dist/` — so a demo
+that behaves oddly is usually a demo running last release's bundle. Rebuild, then reload.
+
 ## License
 
 MIT. © 2026 kgd

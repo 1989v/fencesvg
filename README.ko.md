@@ -2,6 +2,9 @@
 
 **Language:** [English](README.md) | [한국어](README.ko.md)
 
+**[브라우저에서 바로 써 보기](https://1989v.github.io/fencesvg/)** — 왼쪽에 mermaid 를 치면 오른쪽에 SVG 가 나온다.
+화면 톤을 바꿔 보면 **같은 마크업이 다시 그려지지 않고 색만 따라오는 것**을 볼 수 있다.
+
 > 마크다운 펜스에 쓴 mermaid 문법을, 사이트 팔레트를 따라가고 sanitizer 를 통과하는 SVG 로 그린다.
 
 [![npm](https://img.shields.io/npm/v/fencesvg.svg)](https://www.npmjs.com/package/fencesvg)
@@ -323,6 +326,12 @@ flowchart LR
 편이 낫다.
 
 못 읽는 문법은 절대 던지지 않는다. 그 펜스는 코드 블록으로 남고 이유가 `warnings` 에 담긴다.
+
+## 데모 페이지
+
+[1989v.github.io/fencesvg](https://1989v.github.io/fencesvg/) 은 이 저장소의 `docs/` 폴더이고, GitHub Pages 가 `main` 에서 그대로 서빙한다.
+페이지는 `docs/lib/index.js` 를 읽는데 그 파일은 `npm run build` 가 `dist/` 에서 복사한다 —
+**데모가 이상하게 굴면 대개 지난 빌드의 번들을 돌리고 있는 것**이다. 다시 빌드하고 새로고침한다.
 
 ## 라이선스
 
