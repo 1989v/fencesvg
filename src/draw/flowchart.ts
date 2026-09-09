@@ -6,7 +6,7 @@ import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText, extraLineHeight } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
 import { chooseLabelT, cutPathAtBox, edgeLabel, labelChipBox, edgeRoom, labelStack, pointAtFraction } from './label';
-import { framesFor, drawFrames, widenForLabel } from './group';
+import { framesFor, drawFrames, widenForLabel, frameRoom, crossesGroups } from './group';
 import { WEIGHT, metrics } from './theme';
 
 // 간선 라벨은 경로 중점이 아니라 시작 쪽 40% 지점에 둔다 — 같은 노드에서
@@ -172,8 +172,10 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   const groupOf = new Map<string, number>();
   model.groups.forEach((g, i) => { for (const id of g.members) if (!groupOf.has(id)) groupOf.set(id, i); });
   const rankAxis = model.dir === 'LR' || model.dir === 'RL' ? 'x' : 'y';
-  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap, groupOf.size ? groupOf : undefined,
-    edgeRoom(model.edges, theme, rankAxis), labelStack(theme, rankAxis));
+  const room = edgeRoom(model.edges, theme, rankAxis);
+  const frameGap = frameRoom(theme);
+  const lay = layoutGraph(nodes, model.edges, model.dir, { ...m.gap, group: m.padY }, groupOf.size ? groupOf : undefined,
+    (e) => Math.max(room(e), crossesGroups(groupOf, e.from, e.to) ? frameGap : 0), labelStack(theme, rankAxis));
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 

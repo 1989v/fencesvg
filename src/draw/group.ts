@@ -53,6 +53,22 @@ export function framesFor(
   return { frames, warnings };
 }
 
+/**
+ * 서로 다른 묶음의 구성원을 잇는 간선이 두 층 사이에서 필요로 하는 길이 —
+ * 위 묶음의 아래 여백 + 아래 묶음의 제목 줄과 위 여백 + 숨. 층 사이 기본값(3.5em)보다
+ * 커서, 이걸 안 세면 아래 묶음의 제목이 위 묶음의 점선에 눌린다(실측).
+ */
+export function frameRoom(theme: Theme): number {
+  const m = metrics(theme);
+  return m.padY * 2 + m.rowH + 8;
+}
+
+/** 두 노드가 서로 다른 묶음에 속하는가(둘 다 묶음 안일 때만). */
+export function crossesGroups(groupOf: Map<string, number>, from: string, to: string): boolean {
+  const a = groupOf.get(from), b = groupOf.get(to);
+  return a !== undefined && b !== undefined && a !== b;
+}
+
 /** 테두리를 그린다. 노드보다 **먼저** 내야 노드가 위에 온다. */
 export function drawFrames(frames: Frame[], shift: (p: Pt) => Pt, theme: Theme): string[] {
   const m = metrics(theme);

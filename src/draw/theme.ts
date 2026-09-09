@@ -155,6 +155,7 @@ export function metrics(theme: Theme): Metrics {
     loopH: padY,
     outerPad: Math.round(fs / 2),
     // 랭크 간격은 mermaid 기본(50)과 비슷한 3.5em — 라벨이 더 필요로 하면 layoutGraph 가 그 사이만 벌린다.
-    gap: { rank: Math.round(fs * 3.5), node: Math.round(fs * 2.5) },
+    // 교차축 간격 3em — 이웃 노드 밑을 지나는 간선 라벨(칩 높이 약 1.4em)이 노드에 닿지 않을 만큼.
+    gap: { rank: Math.round(fs * 3.5), node: Math.round(fs * 3) },
   };
 }

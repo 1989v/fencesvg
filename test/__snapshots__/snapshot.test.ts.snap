@@ -36,16 +36,16 @@ exports[`스냅샷: er-기본 > 출력이 고정된다 1`] = `
 `;
 
 exports[`스냅샷: flowchart-TD > 출력이 고정된다 1`] = `
-"<div style="overflow-x:auto"><svg width="182" height="138" viewBox="-4 -4 182 138" role="img" aria-label="설명" style="min-width:155px;max-width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">
+"<div style="overflow-x:auto"><svg width="188" height="138" viewBox="-4 -4 188 138" role="img" aria-label="설명" style="min-width:160px;max-width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="d1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="var(--fs-line, color-mix(in srgb, currentColor 30%, transparent))"/></marker></defs>
-<path d="M 76 44 L 76 54 Q 76 60 70 60 L 42 60 Q 36 60 36 66 L 36 88" fill="none" stroke="var(--fs-line, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1" marker-end="url(#d1-arrow)"/>
-<path d="M 96 44 L 96 66 Q 96 72 102 72 L 134 72 Q 140 72 140 78 L 140 88" fill="none" stroke="var(--fs-line, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1" marker-end="url(#d1-arrow)"/>
-<rect x="52" y="0" width="72" height="44" rx="22" fill="var(--fs-node-fill-strong, color-mix(in srgb, currentColor 13%, transparent))" stroke="var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1"/>
-<text x="88" y="26" text-anchor="middle" fill="var(--fs-ink, currentColor)" font-size="12" font-weight="600">a</text>
+<path d="M 80 44 L 80 54 Q 80 60 74 60 L 42 60 Q 36 60 36 66 L 36 88" fill="none" stroke="var(--fs-line, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<path d="M 100 44 L 100 66 Q 100 72 106 72 L 138 72 Q 144 72 144 78 L 144 88" fill="none" stroke="var(--fs-line, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1" marker-end="url(#d1-arrow)"/>
+<rect x="56" y="0" width="72" height="44" rx="22" fill="var(--fs-node-fill-strong, color-mix(in srgb, currentColor 13%, transparent))" stroke="var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1"/>
+<text x="92" y="26" text-anchor="middle" fill="var(--fs-ink, currentColor)" font-size="12" font-weight="600">a</text>
 <rect x="0" y="88" width="72" height="44" rx="var(--fs-radius, 6)" fill="var(--fs-node-fill, color-mix(in srgb, currentColor 3.5%, transparent))" stroke="var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1"/>
 <text x="36" y="114" text-anchor="middle" fill="var(--fs-ink, currentColor)" font-size="12" font-weight="600">b</text>
-<rect x="104" y="88" width="72" height="44" rx="var(--fs-radius, 6)" fill="var(--fs-node-fill, color-mix(in srgb, currentColor 3.5%, transparent))" stroke="var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1"/>
-<text x="140" y="114" text-anchor="middle" fill="var(--fs-ink, currentColor)" font-size="12" font-weight="600">c</text>
+<rect x="108" y="88" width="72" height="44" rx="var(--fs-radius, 6)" fill="var(--fs-node-fill, color-mix(in srgb, currentColor 3.5%, transparent))" stroke="var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))" stroke-width="1"/>
+<text x="144" y="114" text-anchor="middle" fill="var(--fs-ink, currentColor)" font-size="12" font-weight="600">c</text>
 </svg></div>"
 `;
 

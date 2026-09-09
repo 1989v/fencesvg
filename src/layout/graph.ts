@@ -130,7 +130,8 @@ export function layoutGraph<E extends GraphEdge>(
   nodes: GraphNode[],
   edges: E[],
   dir: Dir,
-  gap: { rank: number; node: number } = DEFAULT_GAP,
+  /** `group` 은 묶음 테두리가 구성원 밖으로 나가는 여백 — 주면 비구성원을 그 띠 밖으로 민다. */
+  gap: { rank: number; node: number; group?: number } = DEFAULT_GAP,
   /** 노드 → 그룹 번호. 주면 같은 그룹끼리 층 안에서 붙여 놓는다. */
   groupOf?: Map<string, number>,
   /**
@@ -175,7 +176,7 @@ export function layoutGraph<E extends GraphEdge>(
     rankGap[i] = Math.max(rankGap[i]!, top3.reduce((a, b) => a + b, 0));
   });
   const rankTotal = rankSize.reduce((a, b) => a + b, 0) + rankGap.reduce((a, b) => a + b, 0);
-  const crossTotal = Math.max(0, ...crossSize);
+  let crossTotal = Math.max(0, ...crossSize);
 
   const placed: Placed[] = [];
   let rankPos = 0;
@@ -191,6 +192,53 @@ export function layoutGraph<E extends GraphEdge>(
     }
     rankPos += rankSize[li]! + (rankGap[li] ?? 0);
   });
+
+  // 묶음 띠 — 같은 그룹의 구성원이 걸친 층들에서 비구성원이 구성원의 교차축 범위
+  // (테두리 여백 포함) 안에 들어오면 밖으로 민다. 층 안에서 구성원을 앞에 세우는
+  // 것만으로는 부족했다: 다른 층의 비구성원이 옆에 서면(실측: 층 4 의 `결과` 가
+  // 층 2~3 구성원의 폭 안에) 경계 상자에 들어가 테두리를 포기하게 된다.
+  // 밀기는 항상 교차축 큰 쪽으로만 하므로 몇 번 돌면 멈춘다.
+  if (groupOf && gap.group !== undefined) {
+    const at = new Map(placed.map((p) => [p.id, p]));
+    const start = (p: Placed) => (horizontal ? p.y : p.x);
+    const end = (p: Placed) => (horizontal ? p.y + p.h : p.x + p.w);
+    const shiftBy = (p: Placed, d: number) => { if (horizontal) p.y += d; else p.x += d; };
+    const membersOf = new Map<number, Placed[]>();
+    for (const [id, g] of groupOf) { const p = at.get(id); if (p) (membersOf.get(g) ?? membersOf.set(g, []).get(g)!).push(p); }
+    const rows = layers.map((l) => l.map((id) => at.get(id)!));
+    for (let pass = 0; pass < 6; pass++) {
+      let moved = false;
+      for (const [g, ms] of membersOf) {
+        const lo = Math.min(...ms.map(start)) - gap.group, hi = Math.max(...ms.map(end)) + gap.group;
+        for (const li of new Set(ms.map((p) => rankOf.get(p.id)!))) {
+          const row = rows[li]!;
+          const isMember = (p: Placed) => groupOf.get(p.id) === g;
+          const first = row.findIndex(isMember);
+          let last = -1; row.forEach((p, i) => { if (isMember(p)) last = i; });
+          // 뒤쪽 침입자 — 띠 끝 너머로 민다(뒤따르는 노드도 같이)
+          for (let k = last + 1; k < row.length; k++) {
+            const n = row[k]!;
+            if (start(n) < hi && end(n) > lo) {
+              const d = hi + gap.node - start(n);
+              if (d > 0) { for (let j = k; j < row.length; j++) shiftBy(row[j]!, d); moved = true; }
+              break;
+            }
+          }
+          // 앞쪽 침입자 — 구성원(과 그 뒤)을 침입자 끝 너머로 민다
+          for (let k = first - 1; k >= 0; k--) {
+            const n = row[k]!;
+            if (start(n) < hi && end(n) > lo) {
+              const d = end(n) + gap.group + gap.node - start(row[first]!);
+              if (d > 0) { for (let j = first; j < row.length; j++) shiftBy(row[j]!, d); moved = true; }
+              break;
+            }
+          }
+        }
+      }
+      if (!moved) break;
+    }
+    crossTotal = Math.max(crossTotal, ...placed.map(end));
+  }
 
   const width = horizontal ? rankTotal : crossTotal;
   const height = horizontal ? crossTotal : rankTotal;

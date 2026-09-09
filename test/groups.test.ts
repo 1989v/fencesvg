@@ -148,15 +148,19 @@ describe('작도가 낸 경고가 renderDiagram 까지 온다', () => {
   // 펼치면 그 경고가 조용히 사라진다 — 실제로 그랬고, 화면에는 테두리가
   // 없는데 아무도 이유를 알 수 없었다.
   it('테두리를 포기하면 경고가 결과에 담긴다', () => {
+    // 배치가 비구성원을 묶음 띠 밖으로 밀게 된 뒤로는(layout-graph 의 묶음 띠)
+    // 단순한 침입은 안 생긴다. 남는 경우는 중첩 — 바깥 묶음에만 속한 노드가 안쪽
+    // 묶음의 구성원 옆에 서면 안쪽 테두리 안에 들어간다(같은 바깥 묶음이라 안 민다).
     const r = renderDiagram(`%% caption: x
 flowchart LR
-  A --> B
-  subgraph g[그룹]
-    B --> C
-    C --> D
+  subgraph outer[바깥]
+    subgraph inner[안]
+      B --> C
+    end
+    X[바깥만]
   end
-  C -.-> 남[남의 노드]
-  D --> E`);
+  A --> B
+  A --> X`);
     expect(r.svg).not.toBeNull();
     const dropped = r.warnings.filter((w) => w.includes('테두리'));
     expect(dropped.length, `경고: ${r.warnings.join(' | ')}`).toBeGreaterThan(0);

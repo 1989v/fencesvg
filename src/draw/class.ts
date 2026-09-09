@@ -5,7 +5,7 @@ import { entryOffsetFor, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText } from '../text';
 import { ContentBBox, type Box } from './bbox';
-import { framesFor, drawFrames, widenForLabel } from './group';
+import { framesFor, drawFrames, widenForLabel, frameRoom, crossesGroups } from './group';
 import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
 import { arrowMarker } from './flowchart';
 import { GAP, PAD_X, PAD_Y } from './label';
@@ -102,10 +102,11 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
     const cards = (r.fromCard ? 1 : 0) + (r.toCard ? 1 : 0);
     return cards * (CARD_GAP + theme.labelSize) + (r.label ? theme.labelSize * 1.05 + PAD_Y * 2 + 8 : 0);
   };
+  const frameGap = frameRoom(theme);
   const lay = layoutGraph(
-    nodes, model.rels.map((r) => ({ from: r.to, to: r.from, rel: r })), 'TD', m.gap,
+    nodes, model.rels.map((r) => ({ from: r.to, to: r.from, rel: r })), 'TD', { ...m.gap, group: m.padY },
     groupOf.size ? groupOf : undefined,
-    (e) => relationRoom(e.rel),
+    (e) => Math.max(relationRoom(e.rel), crossesGroups(groupOf, e.from, e.to) ? frameGap : 0),
   );
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
