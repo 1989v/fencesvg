@@ -140,3 +140,21 @@ describe('layoutGraph — 순환 끊기', () => {
     expect(r.get('O')).toBe(2);
   });
 });
+
+describe('layoutGraph — 들어오는 간선이 없는 노드는 목표 바로 위 층에 선다', () => {
+  it('A → D 뿐인 A 는 D 바로 위 층으로 내려오고, B 는 그대로 0 이다', () => {
+    // 실측(§01): `사용자 쿼리` 가 맨 위 줄에 서서 `search:app` 까지 긴 선으로 내려왔다.
+    // 아티팩트(dagre)는 간선 길이를 줄이려고 소스를 목표 옆에 매단다.
+    const nodes = ['A', 'B', 'C', 'D'].map((id) => ({ id, w: 100, h: 40 }));
+    const edges = [{ from: 'A', to: 'D' }, { from: 'B', to: 'C' }, { from: 'C', to: 'D' }];
+    const r = layoutGraph(nodes, edges, 'TD').rankOf;
+    expect([r.get('A'), r.get('B'), r.get('C'), r.get('D')]).toEqual([1, 0, 1, 2]);
+  });
+
+  it('소스가 여러 목표를 가지면 가장 위의 목표 바로 위다', () => {
+    const nodes = ['A', 'B', 'C', 'D'].map((id) => ({ id, w: 100, h: 40 }));
+    const edges = [{ from: 'A', to: 'C' }, { from: 'A', to: 'D' }, { from: 'B', to: 'C' }, { from: 'C', to: 'D' }];
+    const r = layoutGraph(nodes, edges, 'TD').rankOf;
+    expect([r.get('A'), r.get('B'), r.get('C'), r.get('D')]).toEqual([0, 0, 1, 2]);
+  });
+});

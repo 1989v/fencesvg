@@ -72,6 +72,19 @@ function rank(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number> {
     }
   }
 
+  // 3) 들어오는 간선이 없는 노드는 목표 바로 위 층으로 내린다 — 가장 긴 경로로만
+  // 매기면 소스가 전부 맨 위 줄에 서서, 깊은 곳의 목표까지 긴 선으로 내려온다
+  // (실측: `사용자 쿼리` 가 오른쪽 위에서 `search:app` 까지 그림 전체를 가로질렀다).
+  // 목표가 여럿이면 가장 위 목표의 바로 위다. 소스의 후속은 소스가 아니므로 한 번이면 된다.
+  const hasIn = new Set<string>();
+  for (const s2 of succ.values()) for (const to of s2) hasIn.add(to);
+  for (const id of ids) {
+    if (hasIn.has(id)) continue;
+    const targets = succ.get(id)!;
+    if (targets.length === 0) continue;
+    r.set(id, Math.min(...targets.map((t) => r.get(t)!)) - 1);
+  }
+
   const used = Array.from(new Set(r.values())).sort((a, b) => a - b);
   const remap = new Map(used.map((v, i) => [v, i]));
   for (const [id, v] of r) r.set(id, remap.get(v)!);
