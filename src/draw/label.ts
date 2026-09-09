@@ -2,7 +2,7 @@ import { el, text, type Pt } from '../svg';
 import { measureText, extraLineHeight } from '../text';
 import { WEIGHT, type Theme } from './theme';
 import type { Box } from './bbox';
-import { segmentInsideSpan } from '../layout/edge';
+import { fanRoom, segmentInsideSpan } from '../layout/edge';
 
 // 선에서 라벨까지 띄우는 값·칩 패딩 — class 의 왼쪽 정렬 칩(가로로 띄운다)도
 // 같은 숫자를 쓴다. 값이 두 곳에서 각자 하드코딩되어 어긋나는 걸 막는다.
@@ -94,6 +94,89 @@ export function labelChipBox(
  * 나머지는 그 자리가 막혔을 때 가까운 순으로 옮겨 볼 자리다. */
 const LABEL_FRACTIONS = [0.4, 0.5, 0.32, 0.6, 0.25, 0.7, 0.18, 0.8];
 
+/** 칩 양옆(위아래)으로 선이 보여야 하는 최소 길이 — 끊긴 선이 라벨을 "지나는" 것으로 읽히게. */
+const LABEL_ROOM = 24;
+
+/**
+ * 라벨이 선 위에 앉으려면 두 상자 사이가 이만큼은 되어야 한다 — 가로 흐름이면
+ * 칩 폭, 세로 흐름이면 칩 높이에 양옆 선 길이를 더한 값. `layoutGraph` 의
+ * `need` 로 넘겨 그 층 사이만 벌린다.
+ */
+export function labelRoom(label: string, theme: Theme, axis: 'x' | 'y'): number {
+  const b = labelChipBox(label, 0, 0, theme);
+  return (axis === 'x' ? b.maxX - b.minX : b.maxY - b.minY) + LABEL_ROOM;
+}
+
+/**
+ * `layoutGraph` 의 `need` — 라벨 있는 간선이 두 층 사이에서 필요로 하는 길이.
+ * 부채꼴(`planPorts`)에 속한 간선은 꺾는 지점이 출발·도착 가까이에 몰려 그만큼을
+ * 더 먹으므로(실측: 24px 를 먹어 44px 칩이 남은 44px 구간을 꽉 채우고 상자에
+ * 닿았다) 부채꼴 크기만큼 더한다.
+ */
+export function edgeRoom<E extends { from: string; to: string; label?: string }>(
+  edges: E[], theme: Theme, axis: 'x' | 'y',
+): (e: E) => number {
+  const outdeg = new Map<string, number>();
+  const indeg = new Map<string, number>();
+  for (const e of edges) {
+    outdeg.set(e.from, (outdeg.get(e.from) ?? 0) + 1);
+    indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1);
+  }
+  return (e) => (e.label
+    ? labelRoom(e.label, theme, axis) + fanRoom(Math.max(outdeg.get(e.from) ?? 1, indeg.get(e.to) ?? 1))
+    : 0);
+}
+
+/**
+ * `layoutGraph` 의 `stackNeed` — 세로 흐름(TD/BT)에서 라벨 있는 간선 하나가 띠 안에서
+ * 차지하는 높이. 가로 글자 칩은 같은 띠에 여럿이면 위아래로 쌓여야 한다.
+ */
+export function labelStack<E extends { label?: string }>(theme: Theme, axis: 'x' | 'y'): (e: E) => number {
+  return (e) => (axis === 'y' && e.label ? labelRoom(e.label, theme, 'y') - LABEL_ROOM + 8 : 0);
+}
+
+/** 선을 끊을 때 칩 둘레에 두는 여유 — `cutPathAtBox` 의 기본값과 같다. */
+export const CUT_MARGIN = 2;
+
+/** 비율 `t` 지점이 놓인 선분의 길이와 방향. */
+function segmentAt(path: Pt[], t: number): { len: number; horizontal: boolean } {
+  const segLens = path.slice(1).map((p, i) => Math.hypot(p.x - path[i]!.x, p.y - path[i]!.y));
+  const total = segLens.reduce((a, b) => a + b, 0);
+  let remaining = total * t;
+  for (let i = 0; i < segLens.length; i++) {
+    const len = segLens[i]!;
+    if (remaining <= len || i === segLens.length - 1) {
+      return { len, horizontal: Math.abs(path[i + 1]!.y - path[i]!.y) < 0.5 };
+    }
+    remaining -= len;
+  }
+  return { len: 0, horizontal: true };
+}
+
+/**
+ * 라벨을 놓아 볼 지점들 — **가로 구간의 중점**을 긴 것부터 먼저, 그 다음 위
+ * 비율들. 글자는 가로로 놓이므로 가로 구간에 앉은 라벨이 그 선의 것으로
+ * 읽히고, 세로 토막에 얹으면 옆 선의 라벨과 뒤섞인다(실측: 부채꼴의 안쪽
+ * 간선 라벨이 출발 직후의 짧은 세로 토막에 얹혀 이웃 선을 덮었다).
+ */
+function labelCandidates(path: Pt[]): number[] {
+  const segLens = path.slice(1).map((p, i) => Math.hypot(p.x - path[i]!.x, p.y - path[i]!.y));
+  const total = segLens.reduce((a, b) => a + b, 0);
+  if (total === 0) return LABEL_FRACTIONS;
+  const horizontal: { t: number; len: number }[] = [];
+  const vertical: { t: number; len: number }[] = [];
+  let before = 0;
+  segLens.forEach((len, i) => {
+    if (len > 0) (Math.abs(path[i + 1]!.y - path[i]!.y) < 0.5 ? horizontal : vertical).push({ t: (before + len / 2) / total, len });
+    before += len;
+  });
+  horizontal.sort((a, b) => b.len - a.len);
+  vertical.sort((a, b) => b.len - a.len);
+  // 세로 구간의 중점도 후보에 넣는다 — 짧은 첫·끝 세로 토막(전체의 15% 미만)은
+  // 비율 후보가 한 번도 안 닿아, 가로가 막힌 라벨이 갈 곳 없이 겹쳤다(실측).
+  return [...horizontal.map((h) => h.t), ...vertical.map((v) => v.t), ...LABEL_FRACTIONS];
+}
+
 /** 사각형 두 개가 겹치는 넓이. 안 겹치면 0 — 맞닿기만 한 것도 0 이다. */
 function overlapArea(a: Box, b: Box): number {
   const w = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
@@ -133,13 +216,22 @@ export function chooseLabelT(
   mode: LabelMode = 'on',
 ): number {
   const obstacles = [...nodes.map(asBox), ...placed];
-  let leastT = LABEL_FRACTIONS[0]!;
+  const candidates = labelCandidates(path);
+  let leastT = candidates[0]!;
   let leastArea = Infinity;
-  for (const t of LABEL_FRACTIONS) {
+  for (const t of candidates) {
     const at = pointAtFraction(path, t);
     const chip = labelChipBox(label, at.x, at.y, theme, 'middle', mode);
     let area = 0;
     for (const o of obstacles) area += overlapArea(chip, o);
+    // 칩이 자기 선분보다 길면 꺾이는 모서리까지 덮어 선이 사라진다 — 안 맞는
+    // 만큼 벌점을 준다(실측: 부채꼴 안쪽 간선의 44px 구간에 44px 칩이 앉아
+    // 도착 직전 선이 통째로 잘렸다).
+    if (mode === 'on') {
+      const seg = segmentAt(path, t);
+      const fit = (seg.horizontal ? chip.maxX - chip.minX : chip.maxY - chip.minY) + 2 * CUT_MARGIN + 4;
+      if (seg.len < fit) area += (fit - seg.len) * (chip.maxY - chip.minY);
+    }
     if (area === 0) return t;
     if (area < leastArea) { leastArea = area; leastT = t; }
   }

@@ -5,7 +5,7 @@ import { routeEdge, type Point, planPorts } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText, extraLineHeight } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
-import { chooseLabelT, cutPathAtBox, edgeLabel, labelChipBox, pointAtFraction } from './label';
+import { chooseLabelT, cutPathAtBox, edgeLabel, labelChipBox, edgeRoom, pointAtFraction } from './label';
 import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
 
 // 라벨을 경로 중점이 아니라 시작 쪽 40% 지점에 — 한 엔티티에서 갈라지는 관계끼리
@@ -84,8 +84,9 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
         + extraLineHeight(e.id, theme.fontSize),
     };
   });
-  const edges = model.rels.map((r) => ({ from: r.from, to: r.to }));
-  const lay = layoutGraph(nodes, edges, 'LR', m.gap);
+  const edges = model.rels.map((r) => ({ from: r.from, to: r.to, label: r.label }));
+  // 관계 라벨이 선 위에 앉으므로 그 폭만큼 두 엔티티 사이를 벌린다.
+  const lay = layoutGraph(nodes, edges, 'LR', m.gap, undefined, edgeRoom(edges, theme, 'x'));
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
   // 출구·입구 슬롯과 꺾는 지점은 부채꼴 단위로 정하고, 다른 엔티티는 피해 간다.

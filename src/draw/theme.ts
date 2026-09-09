@@ -154,6 +154,7 @@ export function metrics(theme: Theme): Metrics {
     seqMinCol: fs * 8,
     loopH: padY,
     outerPad: Math.round(fs / 2),
-    gap: { rank: Math.round((fs * 14) / 3), node: Math.round(fs * 2.5) },
+    // 랭크 간격은 mermaid 기본(50)과 비슷한 3.5em — 라벨이 더 필요로 하면 layoutGraph 가 그 사이만 벌린다.
+    gap: { rank: Math.round(fs * 3.5), node: Math.round(fs * 2.5) },
   };
 }

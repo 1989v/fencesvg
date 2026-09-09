@@ -5,7 +5,7 @@ import { planPorts, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText, extraLineHeight } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
-import { chooseLabelT, cutPathAtBox, edgeLabel, labelChipBox, pointAtFraction } from './label';
+import { chooseLabelT, cutPathAtBox, edgeLabel, labelChipBox, edgeRoom, labelStack, pointAtFraction } from './label';
 import { framesFor, drawFrames, widenForLabel } from './group';
 import { WEIGHT, metrics } from './theme';
 
@@ -171,7 +171,9 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   // 같은 그룹끼리 층 안에서 붙여 놓는다 — 테두리가 남의 노드를 안 삼키도록.
   const groupOf = new Map<string, number>();
   model.groups.forEach((g, i) => { for (const id of g.members) if (!groupOf.has(id)) groupOf.set(id, i); });
-  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap, groupOf.size ? groupOf : undefined);
+  const rankAxis = model.dir === 'LR' || model.dir === 'RL' ? 'x' : 'y';
+  const lay = layoutGraph(nodes, model.edges, model.dir, m.gap, groupOf.size ? groupOf : undefined,
+    edgeRoom(model.edges, theme, rankAxis), labelStack(theme, rankAxis));
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 

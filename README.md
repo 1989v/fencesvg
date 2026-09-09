@@ -103,6 +103,7 @@ flowchart LR
 | `---` `-.-` `===` | solid · dotted · thick | none |
 | `--o` `--x` | solid | circle · cross |
 | `<-->` | solid | both ends |
+| `-->\|label\|` · `-- label -->` · `-. label .->` · `== label ==>` | as above | label sits on the line |
 
 Connector length is free: `---->` reads the same as `-->`.
 

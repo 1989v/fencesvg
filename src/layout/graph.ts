@@ -8,63 +8,67 @@ const DEFAULT_GAP = { rank: 56, node: 24 };
 
 /**
  * 랭크 = 진입 간선을 따라간 가장 긴 경로 길이.
- * 순환이 있으면 이미 방문한 노드를 건너뛰어 끝나게 한다 — 순환 그래프의
- * "옳은" 랭크는 정의되지 않지만, 안 끝나는 것보다 임의로 끊는 편이 낫다.
  *
- * 시작점은 **컴포넌트별로** 심는다. 전역에서 한 번만 심으면 진입 간선이
- * 0 인 노드가 없는 컴포넌트(다른 컴포넌트와 안 이어진 순수 순환)는 아예
- * 큐에 못 들어가 방문되지 않는다 — 그 컴포넌트는 조용히 전부 랭크 0 으로
- * 남는다.
+ * 순환은 먼저 끊는다 — Eades–Lin–Smyth 휴리스틱으로 노드를 한 줄로 세우고
+ * (싱크는 뒤로, 소스는 앞으로, 남으면 나가는 간선이 들어오는 간선보다 많은
+ * 것부터 앞으로), 그 줄에서 뒤로 가는 간선을 뒤집은 DAG 에 가장 긴 경로를
+ * 매긴다. 전에는 BFS 가 되돌아오는 간선으로 랭크를 올리기만 해서, 순환 안의
+ * 노드가 맨 아래로 밀리고 거기서 나가는 간선이 전부 역방향 우회선이 됐다
+ * (실측: `S → E → Q → S` 에서 S 가 맨 아래로 가 우회선 셋이 한 곳에 뭉쳤다).
+ * 뒤집힌 간선은 그리는 쪽에서 기하로 판정해(`isBackEdge`) 그대로 우회선으로
+ * 그린다. 순서는 nodes 순회 순서를 따라 결정적이다.
  *
- * BFS 가 끝난 뒤 실사용 랭크 값만 모아 0..k-1 로 다시 매긴다. 역행 간선은
- * 랭크를 올릴 뿐 그 노드를 다시 큐에 넣지 않으므로 중간 값이 통째로
- * 비는 경우가 있다 — 압축이 선두·중간·말단 어디의 빈 층이든 없앤다.
+ * 마지막에 실사용 랭크 값만 모아 0..k-1 로 다시 매긴다 — 빈 층이 없게.
  */
 function rank(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number> {
-  const succ = new Map<string, string[]>();
-  const indeg = new Map<string, number>();
-  const adj = new Map<string, string[]>(); // 무향 — 약연결 컴포넌트 판정용
-  for (const n of nodes) { succ.set(n.id, []); indeg.set(n.id, 0); adj.set(n.id, []); }
-  for (const e of edges) {
-    if (!succ.has(e.from) || !succ.has(e.to)) continue;
-    succ.get(e.from)!.push(e.to);
-    indeg.set(e.to, indeg.get(e.to)! + 1);
-    adj.get(e.from)!.push(e.to);
-    adj.get(e.to)!.push(e.from);
-  }
+  const ids = nodes.map((n) => n.id);
+  const has = new Set(ids);
+  const links = edges.filter((e) => has.has(e.from) && has.has(e.to) && e.from !== e.to);
 
-  // 약연결 컴포넌트로 분할한다 — nodes 순회 순서를 그대로 따라가 결정적이다
-  const compOf = new Map<string, number>();
-  let compCount = 0;
-  for (const n of nodes) {
-    if (compOf.has(n.id)) continue;
-    const stack = [n.id];
-    compOf.set(n.id, compCount);
-    while (stack.length > 0) {
-      const id = stack.pop()!;
-      for (const nb of adj.get(id)!) {
-        if (!compOf.has(nb)) { compOf.set(nb, compCount); stack.push(nb); }
+  // 1) 순환 끊기 — 한 줄 세우기
+  const remaining = new Set(ids);
+  const outOf = (id: string) => links.filter((e) => e.from === id && remaining.has(e.to)).length;
+  const inOf = (id: string) => links.filter((e) => e.to === id && remaining.has(e.from)).length;
+  const head: string[] = [];
+  const tail: string[] = [];
+  while (remaining.size > 0) {
+    let moved = true;
+    while (moved) {
+      moved = false;
+      for (const id of ids) {
+        if (!remaining.has(id)) continue;
+        if (outOf(id) === 0) { tail.unshift(id); remaining.delete(id); moved = true; }
+        else if (inOf(id) === 0) { head.push(id); remaining.delete(id); moved = true; }
       }
     }
-    compCount++;
+    if (remaining.size === 0) break;
+    let pick: string | null = null;
+    let best = -Infinity;
+    for (const id of ids) {
+      if (!remaining.has(id)) continue;
+      const d = outOf(id) - inOf(id);
+      if (d > best) { best = d; pick = id; }
+    }
+    head.push(pick!); remaining.delete(pick!);
   }
+  const pos = new Map([...head, ...tail].map((id, i) => [id, i]));
 
-  const r = new Map<string, number>(nodes.map((n) => [n.id, 0]));
-  const seen = new Set<string>();
-  const queue: string[] = [];
-  for (let c = 0; c < compCount; c++) {
-    const inComp = nodes.filter((n) => compOf.get(n.id) === c);
-    const starts = inComp.filter((n) => indeg.get(n.id) === 0);
-    // 진입 간선이 전부 있는 순환만 남으면 시작점이 없다 — 컴포넌트의 첫
-    // 노드(nodes 순서)를 시작점으로 삼는다
-    const seeds = starts.length > 0 ? starts : inComp.slice(0, 1);
-    for (const s of seeds) { seen.add(s.id); queue.push(s.id); }
+  // 2) 뒤로 가는 간선을 뒤집은 DAG 에 가장 긴 경로 (Kahn)
+  const succ = new Map<string, string[]>(ids.map((id) => [id, []]));
+  const indeg = new Map<string, number>(ids.map((id) => [id, 0]));
+  for (const e of links) {
+    const [from, to] = pos.get(e.from)! <= pos.get(e.to)! ? [e.from, e.to] : [e.to, e.from];
+    succ.get(from)!.push(to);
+    indeg.set(to, indeg.get(to)! + 1);
   }
+  const r = new Map<string, number>(ids.map((id) => [id, 0]));
+  const queue = ids.filter((id) => indeg.get(id) === 0);
   while (queue.length > 0) {
     const id = queue.shift()!;
     for (const to of succ.get(id)!) {
       r.set(to, Math.max(r.get(to)!, r.get(id)! + 1));
-      if (!seen.has(to)) { seen.add(to); queue.push(to); }
+      indeg.set(to, indeg.get(to)! - 1);
+      if (indeg.get(to) === 0) queue.push(to);
     }
   }
 
@@ -122,13 +126,26 @@ function sortLayer(layer: string[], bary: Map<string, number>, groupOf?: Map<str
     .map((x) => x.id);
 }
 
-export function layoutGraph(
+export function layoutGraph<E extends GraphEdge>(
   nodes: GraphNode[],
-  edges: GraphEdge[],
+  edges: E[],
   dir: Dir,
   gap: { rank: number; node: number } = DEFAULT_GAP,
   /** 노드 → 그룹 번호. 주면 같은 그룹끼리 층 안에서 붙여 놓는다. */
   groupOf?: Map<string, number>,
+  /**
+   * 간선이 두 층 사이에서 필요로 하는 랭크축 길이(px). 라벨이 선 위에 앉으면
+   * 그 칩이 두 상자 사이에 들어가야 한다 — 기본 간격보다 넓은 라벨은 양쪽
+   * 상자에 닿았다(실측). 이웃한 층 사이의 간선 중 가장 큰 값으로 그 사이만
+   * 벌린다(mermaid 가 라벨을 더미 노드로 두는 것과 같은 효과).
+   */
+  need?: (e: E) => number,
+  /**
+   * 같은 두 층 사이의 간선들이 **함께** 필요로 하는 길이 — 합산한다. 세로 흐름의
+   * 라벨은 가로 글자라 한 띠에 여럿이면 위아래로 쌓여야 하므로(실측: 한 띠에
+   * 라벨 셋이 포개졌다) 라벨 수만큼 벌린다. 셋까지만 센다.
+   */
+  stackNeed?: (e: E) => number,
 ): GraphLayout {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const rankOf = rank(nodes, edges);
@@ -143,7 +160,21 @@ export function layoutGraph(
   const crossSize = layers.map((l) =>
     l.reduce((s, id) => s + (horizontal ? byId.get(id)!.h : byId.get(id)!.w), 0) + gap.node * Math.max(0, l.length - 1));
 
-  const rankTotal = rankSize.reduce((a, b) => a + b, 0) + gap.rank * Math.max(0, layers.length - 1);
+  // 층 사이 간격 — 기본값에서 출발해, 그 사이를 잇는 간선이 더 필요로 하면 벌린다.
+  const rankGap = layers.slice(1).map(() => gap.rank);
+  const stacked = layers.slice(1).map(() => [] as number[]);
+  for (const e of edges) {
+    const rf = rankOf.get(e.from), rt = rankOf.get(e.to);
+    if (rf === undefined || rt === undefined || rt - rf !== 1) continue;
+    if (need) rankGap[rf] = Math.max(rankGap[rf]!, need(e));
+    if (stackNeed) { const s = stackNeed(e); if (s > 0) stacked[rf]!.push(s); }
+  }
+  stacked.forEach((list, i) => {
+    if (list.length === 0) return;
+    const top3 = list.sort((a, b) => b - a).slice(0, 3);
+    rankGap[i] = Math.max(rankGap[i]!, top3.reduce((a, b) => a + b, 0));
+  });
+  const rankTotal = rankSize.reduce((a, b) => a + b, 0) + rankGap.reduce((a, b) => a + b, 0);
   const crossTotal = Math.max(0, ...crossSize);
 
   const placed: Placed[] = [];
@@ -158,7 +189,7 @@ export function layoutGraph(
         : { id, x: crossPos, y: along, w: n.w, h: n.h });
       crossPos += (horizontal ? n.h : n.w) + gap.node;
     }
-    rankPos += rankSize[li]! + gap.rank;
+    rankPos += rankSize[li]! + (rankGap[li] ?? 0);
   });
 
   const width = horizontal ? rankTotal : crossTotal;

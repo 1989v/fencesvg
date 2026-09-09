@@ -17,6 +17,9 @@ import { GAP, PAD_X, PAD_Y } from './label';
  * 가로로 `GAP`px) 그 헬퍼를 그대로 못 쓴다. 패딩·간격 상수는 그쪽과 공유해
  * 칩 크기가 어긋나지 않게 한다.
  */
+/** 카디널리티를 상자 끝에서 띄우는 거리 — 칩 반 높이(약 11px)보다 커야 상자에 안 닿는다. */
+const CARD_GAP = 18;
+
 function relationLabelChip(labelStr: string, lineX: number, y: number, theme: Theme): { body: string[]; box: Box } {
   const x = lineX + GAP;
   const w = measureText(labelStr, theme.labelSize);
@@ -93,9 +96,16 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
   // 그래서 모든 화살표가 아래에서 위로 향하고, 라우팅 방향이 'BT' 하나로 통일된다.
   const groupOf = new Map<string, number>();
   model.groups.forEach((g, i) => { for (const id of g.members) if (!groupOf.has(id)) groupOf.set(id, i); });
+  // 세로선 옆에 라벨 칩, 양 끝에 카디널리티가 붙는다 — 그만큼은 두 상자 사이가
+  // 있어야 라벨이 카디널리티나 상자에 겹치지 않는다(실측: `uses` 가 `0..*` 를 덮었다).
+  const relationRoom = (r: ClassModel['rels'][number]) => {
+    const cards = (r.fromCard ? 1 : 0) + (r.toCard ? 1 : 0);
+    return cards * (CARD_GAP + theme.labelSize) + (r.label ? theme.labelSize * 1.05 + PAD_Y * 2 + 8 : 0);
+  };
   const lay = layoutGraph(
-    nodes, model.rels.map((r) => ({ from: r.to, to: r.from })), 'TD', m.gap,
+    nodes, model.rels.map((r) => ({ from: r.to, to: r.from, rel: r })), 'TD', m.gap,
     groupOf.size ? groupOf : undefined,
+    (e) => relationRoom(e.rel),
   );
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
@@ -156,7 +166,7 @@ export function drawClass(model: ClassModel, theme: Theme, idPrefix: string, lab
       const at = path[idx]!;
       const inward = path[idx === 0 ? Math.min(1, path.length - 1) : Math.max(0, path.length - 2)]!;
       const dx = Math.sign(inward.x - at.x), dy = Math.sign(inward.y - at.y);
-      body.push(...relationLabelChip(card, at.x + dx * 10 + 4, at.y + dy * 14, theme).body);
+      body.push(...relationLabelChip(card, at.x + dx * 10 + 4, at.y + dy * CARD_GAP, theme).body);
     }
   }
 

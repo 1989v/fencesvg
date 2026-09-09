@@ -192,6 +192,10 @@ function routeForward(from: Placed, to: Placed, dir: Dir, aligned: boolean, o: F
   return best;
 }
 
+/** 우회선이 도착 상자 뒤로 돌아 들어올 때 상자에서 띄우는 거리 — 선 위에 앉는
+ * 라벨 칩(높이 약 22px)이 같은 층의 이웃 상자에 닿지 않게 반 높이보다 넉넉히. */
+const BACK_STUB = 24;
+
 /**
  * 역방향 간선을 상자 주위로 우회시킨다.
  * 라벨은 차단 차선의 중점에 배치한다.
@@ -204,7 +208,7 @@ function routeBackEdge(from: Placed, to: Placed, dir: Dir): { path: Point[]; lab
     const lane = Math.min(from.y, to.y) - 16;
     const fromLeft = from.x;
     const toRight = to.x + to.w;
-    const stub = toRight + 12;
+    const stub = toRight + BACK_STUB;
     const path = [
       { x: fromLeft, y: fromC.y },
       { x: fromLeft, y: lane },
@@ -217,7 +221,7 @@ function routeBackEdge(from: Placed, to: Placed, dir: Dir): { path: Point[]; lab
     const lane = Math.min(from.y, to.y) - 16;
     const fromRight = from.x + from.w;
     const toLeft = to.x;
-    const stub = toLeft - 12;
+    const stub = toLeft - BACK_STUB;
     const path = [
       { x: fromRight, y: fromC.y },
       { x: fromRight, y: lane },
@@ -230,7 +234,7 @@ function routeBackEdge(from: Placed, to: Placed, dir: Dir): { path: Point[]; lab
     const lane = Math.min(from.x, to.x) - 16;
     const fromTop = from.y;
     const toBottom = to.y + to.h;
-    const stub = toBottom + 12;
+    const stub = toBottom + BACK_STUB;
     const path = [
       { x: fromC.x, y: fromTop },
       { x: lane, y: fromTop },
@@ -244,7 +248,7 @@ function routeBackEdge(from: Placed, to: Placed, dir: Dir): { path: Point[]; lab
     const lane = Math.min(from.x, to.x) - 16;
     const fromBottom = from.y + from.h;
     const toTop = to.y;
-    const stub = toTop - 12;
+    const stub = toTop - BACK_STUB;
     const path = [
       { x: fromC.x, y: fromBottom },
       { x: lane, y: fromBottom },
@@ -357,8 +361,16 @@ function slotOffset(span: number, slot: number, count: number): number {
   return (slot - (count - 1) / 2) * spacing;
 }
 
-/** 부채꼴 안에서 이웃 간선의 꺾는 지점을 벌리는 간격. */
-const FAN_STAGGER = 8;
+/** 부채꼴 안에서 이웃 간선의 꺾는 지점을 벌리는 간격 — 층 사이가 좁을 때의 값. */
+export const FAN_STAGGER = 8;
+/** 층 사이가 넓으면(라벨 때문에 벌어진 띠) 이만큼까지 벌린다 — 이웃 가로줄에 앉은
+ * 라벨 칩(높이 약 22px)이 서로 포개지지 않게. */
+const FAN_STAGGER_MAX = 24;
+
+/** 부채꼴이 꺾는 지점들로 먹는 랭크축 길이 — 라벨 자리를 계산할 때 더한다. */
+export function fanRoom(fanSize: number): number {
+  return fanSize > 1 ? FAN_LEAD + FAN_STAGGER * (fanSize - 1) : 0;
+}
 
 export type Ports = { entryOffset: number; exitOffset: number; knee?: number };
 
@@ -413,7 +425,7 @@ export function planPorts(edges: { from: string; to: string }[], at: Map<string,
     [...idx].sort((p, q) => drift(q) - drift(p)).forEach((ei, k) => {
       const { fe, span } = gapOf(ei);
       const lead = Math.min(FAN_LEAD, span / 2);
-      const s = Math.min(FAN_STAGGER, Math.max(0, span - 2 * lead) / Math.max(1, idx.length - 1));
+      const s = Math.min(FAN_STAGGER_MAX, Math.max(0, span - 2 * lead) / Math.max(1, idx.length - 1));
       consider(ei, idx.length, fe + sgnOf(ei) * (lead + s * k));
     });
   }
@@ -425,7 +437,7 @@ export function planPorts(edges: { from: string; to: string }[], at: Map<string,
     [...idx].sort((p, q) => drift(q) - drift(p)).forEach((ei, k) => {
       const { te, span } = gapOf(ei);
       const lead = Math.min(FAN_LEAD, span / 2);
-      const s = Math.min(FAN_STAGGER, Math.max(0, span - 2 * lead) / Math.max(1, idx.length - 1));
+      const s = Math.min(FAN_STAGGER_MAX, Math.max(0, span - 2 * lead) / Math.max(1, idx.length - 1));
       consider(ei, idx.length, te - sgnOf(ei) * (lead + s * k));
     });
   }
