@@ -2,12 +2,31 @@ import { el, text, type Pt } from '../svg';
 import { measureText, extraLineHeight } from '../text';
 import { WEIGHT, type Theme } from './theme';
 import type { Box } from './bbox';
+import { segmentInsideSpan } from '../layout/edge';
 
 // 선에서 라벨까지 띄우는 값·칩 패딩 — class 의 왼쪽 정렬 칩(가로로 띄운다)도
 // 같은 숫자를 쓴다. 값이 두 곳에서 각자 하드코딩되어 어긋나는 걸 막는다.
 export const GAP = 8;
 export const PAD_X = 5;
 export const PAD_Y = 3;
+
+/**
+ * 라벨이 선에 어떻게 붙는가.
+ * - `on`: 선 **위에** 앉는다 — 칩 중심이 선 위에 오고, 그리는 쪽이 칩 자리에서
+ *   선을 끊는다(`cutPathAtBox`). 흐름도·상태도·ER 의 간선 라벨. 라벨이 어느
+ *   선의 것인지가 자리로 드러난다 — 선 옆에 띄우면 근처의 다른 선 것으로 읽힌다.
+ * - `above`: 선 `GAP`px 위에 뜬다. 순차도의 메시지 라벨 — 가로선 위에 글을
+ *   얹는 것이 순차도의 관례고, 선을 끊으면 메시지 방향이 안 보인다.
+ */
+export type LabelMode = 'on' | 'above';
+
+/** `on` 모드에서 글자 기준선을 선 아래로 내리는 비율 — 대문자 높이(약 0.7em)의
+ * 절반쯤 내려야 글자의 시각적 중심이 선 위에 온다. */
+const ON_LINE_BASELINE = 0.3;
+
+function baselineFor(lineY: number, fontSize: number, mode: LabelMode): number {
+  return mode === 'above' ? lineY - GAP : lineY + fontSize * ON_LINE_BASELINE;
+}
 
 /**
  * 폴리라인을 따라 전체 길이의 `t`(0~1) 지점 좌표를 구한다 — 간선 라벨을
@@ -55,9 +74,10 @@ export function labelChipBox(
   lineY: number,
   theme: Theme,
   anchor: 'middle' | 'start' = 'middle',
+  mode: LabelMode = 'on',
 ): Box {
   const fontSize = theme.labelSize;
-  const baseline = lineY - GAP;
+  const baseline = baselineFor(lineY, fontSize, mode);
   const w = measureText(label, fontSize);
   // 여러 줄이면 첫 줄이 위로, 마지막 줄이 아래로 반씩 벌어진다(`text()` 의 정렬).
   const half = extraLineHeight(label, fontSize) / 2;
@@ -110,13 +130,14 @@ export function chooseLabelT(
   theme: Theme,
   nodes: NodeRect[],
   placed: Box[] = [],
+  mode: LabelMode = 'on',
 ): number {
   const obstacles = [...nodes.map(asBox), ...placed];
   let leastT = LABEL_FRACTIONS[0]!;
   let leastArea = Infinity;
   for (const t of LABEL_FRACTIONS) {
     const at = pointAtFraction(path, t);
-    const chip = labelChipBox(label, at.x, at.y, theme);
+    const chip = labelChipBox(label, at.x, at.y, theme, 'middle', mode);
     let area = 0;
     for (const o of obstacles) area += overlapArea(chip, o);
     if (area === 0) return t;
@@ -131,10 +152,11 @@ export function edgeLabel(
   lineY: number,
   theme: Theme,
   anchor: 'middle' | 'start' = 'middle',
+  mode: LabelMode = 'on',
 ): { body: string[]; box: Box } {
   const fontSize = theme.labelSize;
-  const baseline = lineY - GAP;
-  const box = labelChipBox(label, x, lineY, theme, anchor);
+  const baseline = baselineFor(lineY, fontSize, mode);
+  const box = labelChipBox(label, x, lineY, theme, anchor, mode);
   const { minX, maxX, minY: top, maxY: bottom } = box;
   const body = [
     el('rect', { x: minX, y: top, width: maxX - minX, height: bottom - top, rx: 3, fill: theme.labelChip }),
@@ -144,4 +166,32 @@ export function edgeLabel(
     }),
   ];
   return { body, box };
+}
+
+/**
+ * 폴리라인에서 상자(라벨 칩) 안을 지나는 구간을 잘라 내고 바깥 조각들을 돌려준다.
+ *
+ * 간선 라벨이 선 위에 앉을 때(`LabelMode` `on`) 선이 글자 밑을 지나지 않게 하는
+ * 데 쓴다. 칩을 불투명하게 칠해 가리는 대신 선 자체를 끊으면 칩이 반투명한
+ * 테마(EDITORIAL)에서도 읽히고, 사이트가 `--fs-label-chip` 을 어떻게 주든
+ * 상관없다. 상자와 안 만나면 원래 경로 하나가 그대로 온다. 점 하나뿐인 조각은
+ * 버린다 — 그릴 것이 없다.
+ */
+export function cutPathAtBox(path: Pt[], box: Box, margin = 2): Pt[][] {
+  const b: Box = { minX: box.minX - margin, maxX: box.maxX + margin, minY: box.minY - margin, maxY: box.maxY + margin };
+  const pieces: Pt[][] = [];
+  let cur: Pt[] = [];
+  const close = () => { if (cur.length >= 2) pieces.push(cur); cur = []; };
+  for (let i = 0; i + 1 < path.length; i++) {
+    const p = path[i]!, q = path[i + 1]!;
+    const span = segmentInsideSpan(p, q, b);
+    if (!span) { if (cur.length === 0) cur.push(p); cur.push(q); continue; }
+    const [t0, t1] = span;
+    const at = (t: number): Pt => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+    if (t0 > 0) { if (cur.length === 0) cur.push(p); cur.push(at(t0)); }
+    close();
+    if (t1 < 1) { cur.push(at(t1)); cur.push(q); }
+  }
+  close();
+  return pieces.length ? pieces : [path];
 }

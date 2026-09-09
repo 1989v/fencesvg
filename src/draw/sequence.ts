@@ -134,12 +134,12 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
     if (s.from === s.to) {
       const cx = lay.x.get(s.from)!;
       bbox.box({ minX: cx, maxX: cx + loopW, minY: y, maxY: y + m.loopH });
-      bbox.box(edgeLabel(numbered(s), cx + loopW / 2, y, theme).box);
+      bbox.box(edgeLabel(numbered(s), cx + loopW / 2, y, theme, 'middle', 'above').box);
       return;
     }
     const x1 = lay.x.get(s.from)!, x2 = lay.x.get(s.to)!;
     bbox.box({ minX: Math.min(x1, x2), maxX: Math.max(x1, x2), minY: y, maxY: y });
-    bbox.box(edgeLabel(numbered(s), (x1 + x2) / 2, y, theme).box);
+    bbox.box(edgeLabel(numbered(s), (x1 + x2) / 2, y, theme, 'middle', 'above').box);
   });
   for (const a of model.actors) {
     const cx = lay.x.get(a)!;
@@ -268,7 +268,7 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
         'stroke-dasharray': s.line === 'dotted' ? '3 3' : undefined,
         'marker-end': seqHead(s.head, idPrefix, arrowId),
       }));
-      labelBody.push(...edgeLabel(numbered(s), cx + loopW / 2, y, theme).body);
+      labelBody.push(...edgeLabel(numbered(s), cx + loopW / 2, y, theme, 'middle', 'above').body);
       return;
     }
     const p1 = snapPoint({ x: sx(lay.x.get(s.from)!), y });
@@ -279,7 +279,7 @@ export function drawSequence(model: SeqModel, theme: Theme, idPrefix: string, la
       'stroke-dasharray': s.line === 'dotted' ? '3 3' : undefined,
       'marker-end': seqHead(s.head, idPrefix, arrowId),
     }));
-    labelBody.push(...edgeLabel(numbered(s), (p1.x + p2.x) / 2, y, theme).body);
+    labelBody.push(...edgeLabel(numbered(s), (p1.x + p2.x) / 2, y, theme, 'middle', 'above').body);
   });
 
   // 참가자 상자를 마지막에 — 생명선 위를 덮는다. 노드 채움을 줘 배경에서 뜨게 한다.

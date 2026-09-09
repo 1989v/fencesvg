@@ -1,11 +1,11 @@
 import type { FlowModel, Head, Line, Shape } from '../parse/types';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
-import { entryOffsetFor, routeEdge } from '../layout/edge';
+import { planPorts, routeEdge } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText, extraLineHeight } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
-import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
+import { chooseLabelT, cutPathAtBox, edgeLabel, labelChipBox, pointAtFraction } from './label';
 import { framesFor, drawFrames, widenForLabel } from './group';
 import { WEIGHT, metrics } from './theme';
 
@@ -175,17 +175,13 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
   const arrowId = `${idPrefix}-arrow`;
 
-  const inboundCount = new Map<string, number>();
-  for (const e of model.edges) inboundCount.set(e.to, (inboundCount.get(e.to) ?? 0) + 1);
-  const slot = new Map<string, number>();
-
-  const routed = model.edges.flatMap((e) => {
+  // 출구·입구 슬롯과 꺾는 지점은 부채꼴 단위로 정하고, 다른 노드는 피해 간다.
+  const ports = planPorts(model.edges, at, model.dir);
+  const routed = model.edges.flatMap((e, i) => {
     const from = at.get(e.from), to = at.get(e.to);
     if (!from || !to) return [];
-    const i = slot.get(e.to) ?? 0;
-    slot.set(e.to, i + 1);
-    const off = entryOffsetFor(to, model.dir, i, inboundCount.get(e.to) ?? 1);
-    return [{ e, labelT: LABEL_T, ...routeEdge(from, to, model.dir, off) }];
+    const { entryOffset, ...port } = ports[i]!;
+    return [{ e, labelT: LABEL_T, ...routeEdge(from, to, model.dir, entryOffset, { ...port, obstacles: lay.nodes }) }];
   });
 
   // 역방향 간선의 우회 차선과, 가운데 정렬된 라벨(간선 라벨·노드 라벨) 둘 다
@@ -243,21 +239,22 @@ export function drawFlowchart(model: FlowModel, theme: Theme, idPrefix: string, 
   for (const r of routed) {
     const path = r.path.map(shift).map(snapPoint);
     const endId = headId(r.e.head, idPrefix);
-    body.push(el('path', {
-      d: pathData(path),
+    // 라벨은 선 위에 앉고, 선은 칩 자리에서 끊긴다 — 화살촉은 마지막 조각에만,
+    // 시작 쪽 기호는 첫 조각에만 단다.
+    const at2 = r.e.label ? pointAtFraction(path, r.labelT ?? LABEL_T) : null;
+    const pieces = at2 ? cutPathAtBox(path, labelChipBox(r.e.label!, at2.x, at2.y, theme)) : [path];
+    pieces.forEach((piece, k) => body.push(el('path', {
+      d: pathData(piece),
       fill: 'none', stroke: theme.line, 'stroke-width': widthFor(r.e.line),
       'stroke-dasharray': dashFor(r.e.line),
-      'marker-end': endId ? `url(#${endId})` : undefined,
+      'marker-end': endId && k === pieces.length - 1 ? `url(#${endId})` : undefined,
       // 양방향은 시작 쪽에도 화살촉을 단다. 원·가위표는 방향이 없는 기호라
       // 시작 쪽에도 같은 것을 쓰고, 화살표만 반대를 향하는 별도 정의를 쓴다.
-      'marker-start': r.e.backHead
+      'marker-start': r.e.backHead && k === 0
         ? `url(#${r.e.backHead === 'arrow' ? `${idPrefix}-back` : headId(r.e.backHead, idPrefix)})`
         : undefined,
-    }));
-    if (r.e.label) {
-      const at2 = pointAtFraction(path, r.labelT ?? LABEL_T);
-      labelBody.push(...edgeLabel(r.e.label, at2.x, at2.y, theme).body);
-    }
+    })));
+    if (at2) labelBody.push(...edgeLabel(r.e.label!, at2.x, at2.y, theme).body);
   }
 
   // 진입 간선이 없는 노드(그래프의 시작점)는 사각형이라도 둥글게 그린다 —

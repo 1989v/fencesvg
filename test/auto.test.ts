@@ -60,9 +60,9 @@ describe('알려진 팔레트를 가진 페이지에서 감지', () => {
     expect(theme.muted).toBe('var(--fs-muted, rgb(102, 102, 102))');
   });
 
-  it('fontSize 는 10~16 사이로 페이지 값을 그대로 쓰고, labelSize 는 그보다 3 작다', () => {
+  it('fontSize 는 10~16 사이로 페이지 값을 그대로 쓰고, labelSize 는 그보다 1 작다 — 선 위에 앉는 글자는 노드 글자와 거의 같아야 읽힌다', () => {
     expect(theme.fontSize).toBe(15);
-    expect(theme.labelSize).toBe(12);
+    expect(theme.labelSize).toBe(14);
   });
 
   it('강조 노드를 그리면 SVG 에 링크의 색이 accent 로 나온다', () => {

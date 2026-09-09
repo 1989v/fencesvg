@@ -75,9 +75,12 @@ describe('식별 · 비식별 관계', () => {
     expect(m.rels.map((r) => r.line)).toEqual(['solid', 'dotted']);
   });
 
-  it('점선 관계만 stroke-dasharray 를 갖는다', () => {
+  it('점선 관계의 조각만 stroke-dasharray 를 갖는다 (라벨 자리에서 끊겨 조각이 둘일 수 있다)', () => {
     const out = drawEr(m, defaultTheme(), 'd', 'x');
     const paths = out.split('\n').filter((l) => l.startsWith('<path'));
-    expect(paths.filter((l) => l.includes('stroke-dasharray')).length).toBe(1);
+    const dashed = paths.filter((l) => l.includes('stroke-dasharray')).length;
+    expect(dashed).toBeGreaterThanOrEqual(1);
+    expect(dashed).toBeLessThanOrEqual(2);
+    expect(paths.length - dashed).toBeGreaterThanOrEqual(1);
   });
 });

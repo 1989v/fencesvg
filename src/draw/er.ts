@@ -1,11 +1,11 @@
 import type { ErModel, ErAttr, Card } from '../parse/er';
 import type { Theme } from './theme';
 import { layoutGraph, type GraphNode, type Placed } from '../layout/graph';
-import { entryOffsetFor, routeEdge, type Point } from '../layout/edge';
+import { routeEdge, type Point, planPorts } from '../layout/edge';
 import { el, text, svgRoot, pathData, snapBox, snapPoint } from '../svg';
 import { measureText, extraLineHeight } from '../text';
 import { ContentBBox, textBBox, type Box } from './bbox';
-import { chooseLabelT, edgeLabel, pointAtFraction } from './label';
+import { chooseLabelT, cutPathAtBox, edgeLabel, labelChipBox, pointAtFraction } from './label';
 import { WEIGHT, MUTED_OPACITY, metrics } from './theme';
 
 // 라벨을 경로 중점이 아니라 시작 쪽 40% 지점에 — 한 엔티티에서 갈라지는 관계끼리
@@ -88,17 +88,13 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
   const lay = layoutGraph(nodes, edges, 'LR', m.gap);
   const at = new Map(lay.nodes.map((p) => [p.id, p]));
 
-  const inboundCount = new Map<string, number>();
-  for (const r of model.rels) inboundCount.set(r.to, (inboundCount.get(r.to) ?? 0) + 1);
-  const slot = new Map<string, number>();
-
-  const routed = model.rels.flatMap((r) => {
+  // 출구·입구 슬롯과 꺾는 지점은 부채꼴 단위로 정하고, 다른 엔티티는 피해 간다.
+  const ports = planPorts(model.rels, at, 'LR');
+  const routed = model.rels.flatMap((r, i) => {
     const from = at.get(r.from), to = at.get(r.to);
     if (!from || !to) return [];
-    const i = slot.get(r.to) ?? 0;
-    slot.set(r.to, i + 1);
-    const off = entryOffsetFor(to, 'LR', i, inboundCount.get(r.to) ?? 1);
-    return [{ r, labelT: LABEL_T, ...routeEdge(from, to, 'LR', off) }];
+    const { entryOffset, ...port } = ports[i]!;
+    return [{ r, labelT: LABEL_T, ...routeEdge(from, to, 'LR', entryOffset, { ...port, obstacles: lay.nodes }) }];
   });
 
   // 상자만으로 잰 layoutGraph 의 width/height 밖으로 나갈 수 있는 것들:
@@ -135,17 +131,17 @@ export function drawEr(model: ErModel, theme: Theme, idPrefix: string, label: st
 
   for (const rt of routed) {
     const path = rt.path.map(shift).map(snapPoint);
-    body.push(el('path', {
-      d: pathData(path),
+    // 라벨은 선 위에 앉고, 선은 칩 자리에서 끊긴다. 까마귀발은 원래 경로의 양 끝에 그대로 단다.
+    const at2 = rt.r.label ? pointAtFraction(path, rt.labelT ?? LABEL_T) : null;
+    const pieces = at2 ? cutPathAtBox(path, labelChipBox(rt.r.label!, at2.x, at2.y, theme)) : [path];
+    for (const piece of pieces) body.push(el('path', {
+      d: pathData(piece),
       fill: 'none', stroke: theme.line, 'stroke-width': 1,
       'stroke-dasharray': rt.r.line === 'dotted' ? '3 3' : undefined,
     }));
     body.push(...crow(path[0]!, path[1]!, rt.r.fromCard, theme.line));
     body.push(...crow(path[path.length - 1]!, path[path.length - 2]!, rt.r.toCard, theme.line));
-    if (rt.r.label) {
-      const at2 = pointAtFraction(path, rt.labelT ?? LABEL_T);
-      labelBody.push(...edgeLabel(rt.r.label, at2.x, at2.y, theme).body);
-    }
+    if (at2) labelBody.push(...edgeLabel(rt.r.label!, at2.x, at2.y, theme).body);
   }
 
   for (const e of model.entities) {

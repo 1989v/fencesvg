@@ -19,7 +19,7 @@ export type Theme = {
   nodeBorder: string;   // 노드 테두리
   accent: string;       // 강조 노드 테두리·라벨
   accentFill: string;   // 강조 노드 채움
-  label: string;        // 간선 라벨
+  label: string;        // 간선 라벨 — 노드 라벨과 같은 잉크색. 선 위에 앉는 글자를 옅게 하면 선에 묻힌다
   labelChip: string;    // 간선 라벨 뒤 칩
   radius: string;       // 노드 모서리 반경 — rx 에 그대로 꽂는다(단위 없는 숫자만 fallback)
   fontSize: number;     // 노드 라벨
@@ -71,11 +71,11 @@ export const EDITORIAL: Theme = {
   nodeBorder: 'var(--fs-node-border, color-mix(in srgb, currentColor 30%, transparent))',
   accent: 'var(--fs-accent, currentColor)',
   accentFill: 'var(--fs-accent-fill, color-mix(in srgb, currentColor 9%, transparent))',
-  label: 'var(--fs-label, color-mix(in srgb, currentColor 58%, transparent))',
+  label: 'var(--fs-label, currentColor)',
   labelChip: 'var(--fs-label-chip, color-mix(in srgb, currentColor 6%, transparent))',
   radius: 'var(--fs-radius, 6)',
   fontSize: 12,
-  labelSize: 9,
+  labelSize: 11,
   pad: 14,
   accentStrokeWidth: 1.75,
   accentWeight: 700,
