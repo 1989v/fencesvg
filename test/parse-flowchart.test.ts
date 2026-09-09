@@ -200,3 +200,46 @@ describe('parseFlowchart — 문법 경계', () => {
     expect(m.nodes).toHaveLength(2);
   });
 });
+
+describe('mermaid 따옴표·중간 텍스트 표기', () => {
+  it('노드 라벨의 따옴표 한 겹을 벗긴다 — A["x"] · (("x")) · [("x")]', () => {
+    const m = ok('flowchart LR\n A["노드 라벨<br/>둘째"] --> B(("원")) --> C[("통")]');
+    expect(m.nodes.map((n) => n.label)).toEqual(['노드 라벨<br/>둘째', '원', '통']);
+    expect(m.nodes.map((n) => n.shape)).toEqual(['rect', 'circle', 'cylinder']);
+  });
+
+  it('|"라벨"| 의 따옴표를 벗긴다', () => {
+    expect(ok('flowchart LR\n A[a] -->|"파이프 라벨"| B[b]').edges[0]!.label).toBe('파이프 라벨');
+  });
+
+  it('subgraph S["제목"] · subgraph "제목" 의 따옴표를 벗긴다', () => {
+    const m = ok('flowchart LR\n subgraph S["묶음 제목"]\n  A[a]\n end\n subgraph "따옴표만"\n  B[b]\n end\n A --> B');
+    expect(m.groups.map((g) => g.label)).toEqual(['묶음 제목', '따옴표만']);
+    expect(m.groups.map((g) => g.id)).toEqual(['S', '따옴표만']);
+  });
+
+  it('짝이 안 맞는 따옴표는 글자로 둔다', () => {
+    expect(ok('flowchart LR\n A["열린 채] --> B[b]').nodes[0]!.label).toBe('"열린 채');
+  });
+
+  it('A -- 텍스트 --> B 를 실선 라벨 간선으로 읽는다 (따옴표도 벗긴다)', () => {
+    const m = ok('flowchart LR\n A[a] -- "업서트" --> B[b]\n B -- 그냥 --> C[c]');
+    expect(m.edges.map((e) => [e.label, e.line, e.head])).toEqual([['업서트', 'solid', 'arrow'], ['그냥', 'solid', 'arrow']]);
+    expect(m.nodes.map((n) => n.id)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('A -. 텍스트 .-> B 는 점선, A == 텍스트 ==> B 는 굵은선이다', () => {
+    const m = ok('flowchart LR\n A[a] -. "기동 시 10분마다" .-> B[b]\n B == 굵게 ==> C[c]');
+    expect(m.edges.map((e) => [e.label, e.line])).toEqual([['기동 시 10분마다', 'dotted'], ['굵게', 'thick']]);
+  });
+
+  it('중간 텍스트 뒤 끝 기호(o · x · 없음)와 양방향(<)도 읽는다', () => {
+    const m = ok('flowchart LR\n A[a] -- 원 --o B[b]\n B <-- 양방향 --> C[c]\n C -- 열린 --- D[d]');
+    expect(m.edges.map((e) => [e.label, e.head, e.backHead ?? null])).toEqual([['원', 'circle', null], ['양방향', 'arrow', 'arrow'], ['열린', 'none', null]]);
+  });
+
+  it('A --- B --> C 는 여전히 체인이다 — --- 는 링크지 텍스트 시작이 아니다', () => {
+    const m = ok('flowchart LR\n A[a] --- B[b] --> C[c]');
+    expect(m.edges.map((e) => [e.from, e.to, e.label ?? null, e.head])).toEqual([['A', 'B', null, 'none'], ['B', 'C', null, 'arrow']]);
+  });
+});

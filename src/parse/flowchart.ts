@@ -37,7 +37,27 @@ const SHAPE_BY_GROUP: Shape[] = ['subroutine', 'cylinder', 'circle', 'stadium', 
 // 점선은 `-.-` · `-..-` 처럼 점 개수가 는다. 굵은선은 `==` 이상.
 const ARROW = /(<)?(-\.+-|-{2,}|={2,})(>|o|x)?\s*(?:\|([^|]*)\|)?\s*/y;
 
+// `A -- 텍스트 --> B` · `A -. 텍스트 .-> B` · `A == 텍스트 ==> B` — 선 몸통 사이에
+// 라벨을 쓰는 mermaid 표기. 여는 몸통은 **정확히** `--`·`-.`·`==` 이고 바로 뒤에
+// 공백이 와야 한다 — `---`·`-.-`·`===` 는 링크지 텍스트의 시작이 아니다
+// (`A --- B --> C` 는 체인으로 남아야 한다). 라벨은 게으르게 잡아 닫는 몸통
+// (`-->`·`.->`·`==>`, 끝 기호는 ARROW 와 같다) 앞에서 멈춘다. ARROW 보다 먼저
+// 시도한다 — 안 그러면 ARROW 가 `--` 를 끝 없는 연결선으로 삼키고 라벨이 노드
+// 토큰이 되어 "읽을 수 없는 노드: "업서트"" 로 끝난다(실제로 그랬다).
+const MID = /(<)?(?:(--)(?=\s)\s*(.+?)\s*(-{2,})|(-\.)(?=\s)\s*(.+?)\s*(\.-)|(==)(?=\s)\s*(.+?)\s*(={2,}))(>|o|x)?\s*/y;
+
 const HEAD_OF: Record<string, Head> = { '>': 'arrow', o: 'circle', x: 'cross' };
+
+/**
+ * mermaid 의 따옴표 표기(`A["x"]` · `|"x"|` · `subgraph S["x"]`)에서 따옴표
+ * 한 겹을 벗긴다. mermaid 에서는 특수문자·`<br/>` 를 넣으려고 따옴표로 감싸는
+ * 것이 관용이라, 그대로 두면 모든 라벨이 따옴표를 달고 나온다(실제로 그랬다).
+ * 짝이 안 맞으면 사용자가 쓴 글자로 본다.
+ */
+function unquote(s: string): string {
+  const t = s.trim();
+  return t.length >= 2 && t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1) : t;
+}
 
 function lineOf(body: string): Line {
   if (body.includes('.')) return 'dotted';
@@ -64,7 +84,7 @@ function node(token: string): { node: FlowNode } | ParseError {
   let label = id;
   for (let g = 0; g < SHAPE_BY_GROUP.length; g++) {
     const captured = m[g + 2];
-    if (captured !== undefined) { shape = SHAPE_BY_GROUP[g]!; label = captured; break; }
+    if (captured !== undefined) { shape = SHAPE_BY_GROUP[g]!; label = unquote(captured); break; }
   }
   return { node: { id, label, shape } };
 }
@@ -99,6 +119,22 @@ function tokenizeChain(line: string): { tokens: string[]; arrows: ChainArrow[] }
       continue;
     }
     if (depth === 0) {
+      MID.lastIndex = i;
+      const mm = MID.exec(line);
+      if (mm) {
+        const open = (mm[2] ?? mm[5] ?? mm[8])!;
+        const head: Head = mm[11] ? HEAD_OF[mm[11]]! : 'none';
+        tokens.push(line.slice(segStart, i));
+        arrows.push({
+          line: lineOf(open),
+          head,
+          backHead: mm[1] ? (head === 'none' ? 'arrow' : head) : undefined,
+          label: unquote((mm[3] ?? mm[6] ?? mm[9])!) || undefined,
+        });
+        i += mm[0].length;
+        segStart = i;
+        continue;
+      }
       ARROW.lastIndex = i;
       const m = ARROW.exec(line);
       if (m) {
@@ -111,7 +147,7 @@ function tokenizeChain(line: string): { tokens: string[]; arrows: ChainArrow[] }
           line: lineOf(kind),
           head,
           backHead: m[1] ? (head === 'none' ? 'arrow' : head) : undefined,
-          label: m[4]?.trim() || undefined,
+          label: m[4] !== undefined ? unquote(m[4]) || undefined : undefined,
         });
         i += m[0].length;
         segStart = i;
@@ -152,8 +188,9 @@ export function parseFlowchart(src: string): FlowModel | ParseError {
     if (sg) {
       const spec = sg[1]!.trim();
       const withLabel = /^([\p{L}\p{N}_]+)\s*\[([^\]]*)\]$/u.exec(spec);
-      const id = withLabel ? withLabel[1]! : spec;
-      const g: Group = { id, label: withLabel ? withLabel[2]! : spec, members: [] };
+      // `subgraph "제목"` 처럼 따옴표만 있으면 벗긴 제목이 곧 id 다.
+      const id = withLabel ? withLabel[1]! : unquote(spec);
+      const g: Group = { id, label: unquote(withLabel ? withLabel[2]! : spec), members: [] };
       groupStack.push(g);
       groups.push(g);
       continue;
